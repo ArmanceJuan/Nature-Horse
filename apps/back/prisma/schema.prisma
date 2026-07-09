@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  firstName  String
+  lastName   String
+  phone      String?
+  role       Role     @default(CLIENT)
+  otp_enable Boolean  @default(false)
+  otp_secret String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  CLIENT
+}

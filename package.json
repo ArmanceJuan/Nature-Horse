@@ -1,0 +1,14 @@
+{
+  "name": "nature-horse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plateforme e-commerce Nature Horse - monorepo (back, front)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:back": "npm run dev --workspace=apps/back",
+    "dev:front": "npm run dev --workspace=apps/front"
+  },
+  "license": "UNLICENSED"
+}
