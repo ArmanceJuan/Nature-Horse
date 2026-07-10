@@ -10,5 +10,8 @@
     "dev:back": "npm run dev --workspace=apps/back",
     "dev:front": "npm run dev --workspace=apps/front"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
 }
