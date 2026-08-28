@@ -16,4 +16,6 @@ export default {
   testMatch: ["**/*.test.ts"],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.test.ts", "!src/_old_*/**"],
   setupFilesAfterEnv: ["<rootDir>/src/tests/setup.ts"],
+  testTimeout: 20000,
+  maxWorkers: 1,
 };

@@ -2,13 +2,17 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import userRoutes from "./routes/user.routes.js";
-import { errorHandler } from "./middlewares/errorHandler.middleware.js";
+import authRoutes from "./routes/auth.routes.js";
+import cookieParser from "cookie-parser";
+import { errorHandler } from "./middlewares/error-handler.middleware.js";
+import otpRoutes from "./routes/otp.routes.js";
 
 export const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/api/health", (req: Request, res: Response) => {
   res
@@ -17,5 +21,7 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 
 app.use("/api/users", userRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/otp", otpRoutes);
 
 app.use(errorHandler);

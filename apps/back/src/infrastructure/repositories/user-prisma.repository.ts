@@ -26,4 +26,11 @@ export const userPrismaRepository: IUserRepository = {
       data,
     });
   },
+
+  update: async (id: string, data) => {
+    return prisma.user.update({
+      where: { id },
+      data,
+    });
+  },
 };

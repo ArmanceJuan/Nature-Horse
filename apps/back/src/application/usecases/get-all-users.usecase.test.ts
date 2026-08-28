@@ -25,12 +25,15 @@ describe("getAllUsersUsecase", () => {
       findById: async () => null,
       findByEmail: async () => null,
       create: async () => fakeUsers[0],
+      update: async () => fakeUsers[0],
     };
 
     const getAllUsers = getAllUsersUsecase(fakeUserRepository);
     const result = await getAllUsers();
 
-    expect(result).toEqual(fakeUsers);
+    const { password, ...expectedUser } = fakeUsers[0];
+
+    expect(result).toEqual([expectedUser]);
     expect(result).toHaveLength(1);
   });
 });
