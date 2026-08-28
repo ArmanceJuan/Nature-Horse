@@ -1,35 +1,50 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
+import {
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
+  Badge,
+} from "@mui/material";
 import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PlaceIcon from "@mui/icons-material/Place";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import { ShopMenu } from "./ShopMenu.js";
-
-const NAV_ITEMS = [
-  { label: "Accueil", path: "/", icon: <HomeIcon /> },
-  { label: "Boutique", path: "/shop", icon: <StorefrontIcon /> },
-  { label: "Panier", path: "/cart", icon: <ShoppingCartIcon /> },
-  { label: "Boutiques", path: "/stores", icon: <PlaceIcon /> },
-  { label: "Admin", path: "/admin", icon: <DashboardIcon /> },
-];
+import { useCart } from "../../../features/cart/context/CartContext.js";
 
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false);
+  const { totalItems } = useCart();
 
-  const currentIndex = NAV_ITEMS.findIndex(
+  const navItems = [
+    { label: "Accueil", path: "/", icon: <HomeIcon /> },
+    { label: "Boutique", path: "/shop", icon: <StorefrontIcon /> },
+    {
+      label: "Panier",
+      path: "/cart",
+      icon: (
+        <Badge badgeContent={totalItems} color="primary">
+          <ShoppingCartIcon />
+        </Badge>
+      ),
+    },
+    { label: "Boutiques", path: "/stores", icon: <PlaceIcon /> },
+    { label: "Admin", path: "/admin", icon: <DashboardIcon /> },
+  ];
+
+  const currentIndex = navItems.findIndex(
     (item) => item.path === location.pathname,
   );
 
   const handleChange = (newValue: number) => {
-    if (NAV_ITEMS[newValue].path === "/shop") {
+    if (navItems[newValue].path === "/shop") {
       setIsShopMenuOpen(true);
     } else {
-      navigate(NAV_ITEMS[newValue].path);
+      navigate(navItems[newValue].path);
     }
   };
 
@@ -44,7 +59,7 @@ export const BottomNav = () => {
           onChange={(_, newValue) => handleChange(newValue)}
           showLabels
         >
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <BottomNavigationAction
               key={item.path}
               label={item.label}

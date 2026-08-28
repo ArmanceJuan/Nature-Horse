@@ -15,6 +15,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { mockProducts } from "../data/mockProducts.js";
 import { useStore } from "../../stores/context/StoreContext.js";
 import { mockStores } from "../../stores/data/mockStores.js";
+import { useCart } from "../../cart/context/CartContext.js";
 
 export const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,9 @@ export const ProductDetailPage = () => {
 
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+
+  const { addItem } = useCart();
+  const [justAdded, setJustAdded] = useState(false);
 
   if (!product) {
     return (
@@ -128,8 +132,22 @@ export const ProductDetailPage = () => {
           fullWidth
           disabled={!matchingVariant}
           sx={{ mb: 3 }}
+          onClick={() => {
+            if (!matchingVariant) return;
+            addItem({
+              productId: product.id,
+              productName: product.name,
+              imageUrl: product.imageUrl,
+              price: product.price,
+              size: matchingVariant.size,
+              color: matchingVariant.color,
+              quantity: 1,
+            });
+            setJustAdded(true);
+            setTimeout(() => setJustAdded(false), 2000);
+          }}
         >
-          Ajouter au panier
+          {justAdded ? "Ajouté ✓" : "Ajouter au panier"}
         </Button>
 
         <Accordion elevation={0} disableGutters>
