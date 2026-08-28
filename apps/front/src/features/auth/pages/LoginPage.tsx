@@ -32,7 +32,7 @@ export const LoginPage = () => {
       if (result.requiresOtp) {
         setRequiresOtp(true);
       } else {
-        navigate("/otp-setup");
+        navigate("/");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
