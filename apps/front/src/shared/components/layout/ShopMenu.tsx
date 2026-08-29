@@ -1,4 +1,10 @@
-import { Drawer, List, ListItemButton, ListItemText } from "@mui/material";
+import {
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
+  useTheme,
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 interface ShopMenuProps {
@@ -19,6 +25,7 @@ const SHOP_CATEGORIES = [
 
 export const ShopMenu = ({ open, onClose }: ShopMenuProps) => {
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const handleSelect = (slug: string | null) => {
     navigate(slug ? `/shop?category=${slug}` : "/shop");
@@ -26,7 +33,12 @@ export const ShopMenu = ({ open, onClose }: ShopMenuProps) => {
   };
 
   return (
-    <Drawer anchor="bottom" open={open} onClose={onClose} disablePortal>
+    <Drawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      slotProps={{ paper: { sx: { bgcolor: theme.palette.background.paper } } }}
+    >
       <List>
         {SHOP_CATEGORIES.map((category) => (
           <ListItemButton

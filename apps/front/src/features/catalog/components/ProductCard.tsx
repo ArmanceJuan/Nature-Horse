@@ -5,22 +5,34 @@ import type { Product } from "../types/product.types.js";
 interface ProductCardProps {
   product: Product;
   fullWidth?: boolean;
+  fixedWidth?: number;
 }
 
-export const ProductCard = ({ product, fullWidth }: ProductCardProps) => {
+export const ProductCard = ({
+  product,
+  fullWidth,
+  fixedWidth,
+}: ProductCardProps) => {
   const navigate = useNavigate();
 
   return (
     <Card
       onClick={() => navigate(`/product/${product.id}`)}
-      sx={{ width: fullWidth ? "100%" : 160, flexShrink: 0, cursor: "pointer" }}
+      sx={{
+        width: fixedWidth ? fixedWidth : "100%",
+        flexShrink: 0,
+        cursor: "pointer",
+      }}
       elevation={0}
     >
       <CardMedia
         component="img"
         image={product.imageUrl}
         alt={product.name}
-        sx={{ height: 160, borderRadius: 1 }}
+        sx={{
+          height: fixedWidth ? fixedWidth : { xs: 160, md: 260 },
+          borderRadius: 1,
+        }}
       />
       <CardContent sx={{ px: 0, pb: 0 }}>
         <Typography
