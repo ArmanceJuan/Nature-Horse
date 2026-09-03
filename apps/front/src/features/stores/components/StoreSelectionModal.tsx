@@ -6,6 +6,7 @@ import {
   Typography,
   Button,
   Stack,
+  CircularProgress,
 } from "@mui/material";
 import { useStore } from "../context/StoreContext.js";
 
@@ -16,9 +17,10 @@ export const StoreSelectionModal = () => {
     stores,
     isSelectorOpen,
     closeSelector,
+    isLoading,
   } = useStore();
 
-  const isMandatory = selectedStore === null;
+  const isMandatory = selectedStore === null && !isLoading;
   const isOpen = isMandatory || isSelectorOpen;
 
   const handleClose = (_event: object, reason: string) => {
@@ -34,76 +36,81 @@ export const StoreSelectionModal = () => {
       onClose={handleClose}
       fullWidth
       maxWidth="xs"
-      disablePortal
+      keepMounted={false}
     >
       <DialogTitle>Choisissez votre boutique</DialogTitle>
       <DialogContent>
-        <Stack spacing={2}>
-          {stores.map((store) => (
-            <Box
-              key={store.id}
-              onClick={() => setSelectedStore(store)}
-              sx={{
-                position: "relative",
-                height: 150,
-                borderRadius: 1,
-                overflow: "hidden",
-                cursor: "pointer",
-                backgroundImage: `url(${store.imageUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            >
+        {stores.length === 0 ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Stack spacing={2}>
+            {stores.map((store) => (
               <Box
+                key={store.id}
+                onClick={() => setSelectedStore(store)}
                 sx={{
-                  position: "absolute",
-                  inset: 0,
-                  background:
-                    "linear-gradient(to top, rgba(0,0,0,0.75), transparent 60%)",
-                }}
-              />
-              <Box
-                sx={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  p: 1.5,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-end",
+                  position: "relative",
+                  height: 150,
+                  borderRadius: 1,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
                 }}
               >
-                <Box>
-                  <Typography
-                    variant="h4"
-                    sx={{ fontSize: "1.1rem", color: "white" }}
-                  >
-                    {store.city}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "white" }}>
-                    {store.shortLabel}
-                  </Typography>
-                </Box>
-                <Button
-                  size="small"
-                  variant="contained"
+                <Box
                   sx={{
-                    bgcolor: "white",
-                    color: "text.primary",
-                    "&:hover": { bgcolor: "#f0f0f0" },
+                    position: "absolute",
+                    inset: 0,
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.75), transparent 60%)",
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedStore(store);
+                />
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    p: 1.5,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-end",
                   }}
                 >
-                  Découvrir
-                </Button>
+                  <Box>
+                    <Typography
+                      variant="h4"
+                      sx={{ fontSize: "1.1rem", color: "white" }}
+                    >
+                      {store.city}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "white" }}>
+                      {store.address}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    sx={{
+                      bgcolor: "white",
+                      color: "text.primary",
+                      "&:hover": { bgcolor: "#f0f0f0" },
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStore(store);
+                    }}
+                  >
+                    Découvrir
+                  </Button>
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </Stack>
+            ))}
+          </Stack>
+        )}
       </DialogContent>
     </Dialog>
   );

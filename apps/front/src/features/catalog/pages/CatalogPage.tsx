@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Box,
@@ -8,16 +8,21 @@ import {
   Chip,
   Button,
   Drawer,
+  CircularProgress,
 } from "@mui/material";
 import ViewModuleIcon from "@mui/icons-material/ViewModule";
 import ViewAgendaIcon from "@mui/icons-material/ViewAgenda";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import { mockProducts } from "../data/mockProducts.js";
+import { productsApi } from "../api/productsApi.js";
+import type { Product } from "../types/product.types.js";
 import { ProductCard } from "../components/ProductCard.js";
 import { SearchBar } from "../../../shared/components/layout/SearchBar.js";
-import { CatalogFilters } from "../components/CatalogFilters.js";
+import {
+  CatalogFilters,
+  type FiltersState,
+} from "../components/CatalogFilters.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
-import type { FiltersState } from "../components/CatalogFilters.js";
+
 type ViewMode = "grid" | "list";
 
 const EMPTY_FILTERS: FiltersState = {
@@ -34,42 +39,45 @@ export const CatalogPage = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const isDesktop = useIsDesktop();
 
-  const availableSizes = [
-    ...new Set(mockProducts.flatMap((p) => p.variants.map((v) => v.size))),
-  ];
+  useEffect(() => {
+    const loadProducts = async () => {
+      setIsLoading(true);
+      try {
+        const result: Product[] = await productsApi.getAll({
+          collection: collectionFilter ?? undefined,
+          discipline: filters.disciplines[0] ?? undefined,
+          search: searchQuery ?? undefined,
+          minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
+          maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
+          sizes: filters.sizes.length > 0 ? filters.sizes : undefined,
+          limit: 100,
+        });
+        setProducts(result);
+      } catch (error) {
+        console.error("Failed to load products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const filteredProducts = mockProducts.filter((p) => {
-    const matchesCollection = collectionFilter
-      ? p.collection === collectionFilter
-      : true;
-    const matchesSearch = searchQuery
-      ? p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      : true;
-    const matchesDiscipline =
-      filters.disciplines.length > 0
-        ? filters.disciplines.includes(p.discipline)
-        : true;
-    const matchesSize =
-      filters.sizes.length > 0
-        ? p.variants.some((v) => filters.sizes.includes(v.size))
-        : true;
-    const matchesMinPrice = filters.minPrice
-      ? p.price >= Number(filters.minPrice)
-      : true;
-    const matchesMaxPrice = filters.maxPrice
-      ? p.price <= Number(filters.maxPrice)
-      : true;
-    return (
-      matchesCollection &&
-      matchesSearch &&
-      matchesDiscipline &&
-      matchesSize &&
-      matchesMinPrice &&
-      matchesMaxPrice
-    );
-  });
+    loadProducts();
+  }, [collectionFilter, searchQuery, filters]);
+
+  const availableSizes = [
+    ...new Set(
+      products.flatMap((p) =>
+        p.variants.flatMap((v) =>
+          v.attributeValues
+            .filter((av) => av.attributeName === "Taille")
+            .map((av) => av.value),
+        ),
+      ),
+    ),
+  ];
 
   const activeFilterChips = [
     ...filters.disciplines.map((d) => ({
@@ -179,13 +187,17 @@ export const CatalogPage = () => {
             </Stack>
           </Stack>
 
-          {filteredProducts.length === 0 ? (
+          {isLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+              <CircularProgress />
+            </Box>
+          ) : products.length === 0 ? (
             <Typography variant="body1" sx={{ textAlign: "center", mt: 4 }}>
               Aucun produit trouvé.
             </Typography>
           ) : (
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <Box
                   key={product.id}
                   sx={{

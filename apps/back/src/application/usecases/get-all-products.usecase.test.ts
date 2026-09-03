@@ -1,6 +1,11 @@
 import { getAllProductsUsecase } from "./get-all-products.usecase.js";
 import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
+import {
+  Product,
+  ProductStatus,
+} from "../../domain/entities/product.entity.js";
+import { CreateProductInput } from "../../domain/entities/create-product-input.entity.js";
+import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
 
 describe("getAllProductsUsecase", () => {
   const fakeProducts: Product[] = [
@@ -19,6 +24,7 @@ describe("getAllProductsUsecase", () => {
       variants: [],
       createdAt: new Date(),
       updatedAt: new Date(),
+      status: "ACTIVE",
     },
   ];
 
@@ -26,6 +32,34 @@ describe("getAllProductsUsecase", () => {
     const fakeRepository: IProductRepository = {
       findAll: async () => fakeProducts,
       findById: async () => null,
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      create: function (data: CreateProductInput): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      update: function (
+        id: string,
+        data: UpdateProductInput,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      delete: function (id: string): Promise<void> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const getAllProducts = getAllProductsUsecase(fakeRepository);
@@ -43,6 +77,34 @@ describe("getAllProductsUsecase", () => {
         return fakeProducts;
       },
       findById: async () => null,
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      create: function (data: CreateProductInput): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      update: function (
+        id: string,
+        data: UpdateProductInput,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      delete: function (id: string): Promise<void> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const getAllProducts = getAllProductsUsecase(fakeRepository);

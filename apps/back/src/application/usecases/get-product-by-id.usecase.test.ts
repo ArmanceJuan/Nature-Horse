@@ -1,7 +1,10 @@
 import { getProductByIdUsecase } from "./get-product-by-id.usecase.js";
 import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
 import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
+import {
+  Product,
+  ProductStatus,
+} from "../../domain/entities/product.entity.js";
 
 describe("getProductByIdUsecase", () => {
   const fakeProduct: Product = {
@@ -19,6 +22,7 @@ describe("getProductByIdUsecase", () => {
     variants: [],
     createdAt: new Date(),
     updatedAt: new Date(),
+    status: "ACTIVE",
   };
 
   it("should return the product when found", async () => {
@@ -36,6 +40,19 @@ describe("getProductByIdUsecase", () => {
         throw new Error("Function not implemented.");
       },
       findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
         throw new Error("Function not implemented.");
       },
     };
@@ -61,6 +78,19 @@ describe("getProductByIdUsecase", () => {
         throw new Error("Function not implemented.");
       },
       findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
         throw new Error("Function not implemented.");
       },
     };

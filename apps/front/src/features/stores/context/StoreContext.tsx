@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { mockStores } from "../data/mockStores.js";
 import type { Store } from "../types/store.types.js";
+import { storesApi } from "../api/storesApi.js";
 
 const STORAGE_KEY = "nature-horse-selected-store";
 
@@ -12,20 +12,36 @@ interface StoreContextValue {
   isSelectorOpen: boolean;
   openSelector: () => void;
   closeSelector: () => void;
+  isLoading: boolean;
 }
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
+  const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStoreState] = useState<Store | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedStoreId = localStorage.getItem(STORAGE_KEY);
-    if (savedStoreId) {
-      const found = mockStores.find((s) => s.id === savedStoreId);
-      if (found) setSelectedStoreState(found);
-    }
+    const loadStores = async () => {
+      try {
+        const fetchedStores: Store[] = await storesApi.getAll();
+        setStores(fetchedStores);
+
+        const savedStoreId = localStorage.getItem(STORAGE_KEY);
+        if (savedStoreId) {
+          const found = fetchedStores.find((s) => s.id === savedStoreId);
+          if (found) setSelectedStoreState(found);
+        }
+      } catch (error) {
+        console.error("Failed to load stores:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStores();
   }, []);
 
   const setSelectedStore = (store: Store) => {
@@ -42,10 +58,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       value={{
         selectedStore,
         setSelectedStore,
-        stores: mockStores,
+        stores,
         isSelectorOpen,
         openSelector,
         closeSelector,
+        isLoading,
       }}
     >
       {children}

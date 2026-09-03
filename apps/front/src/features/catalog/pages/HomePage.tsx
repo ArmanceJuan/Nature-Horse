@@ -1,6 +1,8 @@
-import { Box, Grid } from "@mui/material";
+import { useState, useEffect } from "react";
+import { Box, Grid, CircularProgress } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { mockProducts } from "../data/mockProducts.js";
+import { productsApi } from "../api/productsApi.js";
+import type { Product } from "../types/product.types.js";
 import { ProductCarousel } from "../components/ProductCarousel.js";
 import { HeroBanner } from "../components/HeroBanner.js";
 import { PromoBlock } from "../components/PromoBlock.js";
@@ -8,8 +10,34 @@ import { BrandEssenceSection } from "../components/BrandEssenceSection.js";
 
 export const HomePage = () => {
   const navigate = useNavigate();
-  const popularProducts = mockProducts.filter((p) => p.isPopular);
-  const newProducts = mockProducts.filter((p) => p.isNew);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const result: Product[] = await productsApi.getAll({ limit: 50 });
+        setProducts(result);
+      } catch (error) {
+        console.error("Failed to load products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const popularProducts = products.filter((p) => p.isPopular);
+  const newProducts = products.filter((p) => p.isNew);
 
   return (
     <Box>

@@ -1,3 +1,5 @@
+export type ProductStatus = "ACTIVE" | "ARCHIVED";
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -23,6 +25,7 @@ export interface Product {
   price: number;
   collection: string;
   discipline: string;
+  status: ProductStatus;
   specs: string[];
   shippingInfo: string;
   isNew: boolean;

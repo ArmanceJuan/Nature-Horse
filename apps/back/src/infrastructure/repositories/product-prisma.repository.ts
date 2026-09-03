@@ -3,6 +3,7 @@ import { IProductRepository } from "../../domain/interfaces/product-repository.i
 import {
   Product,
   ProductVariant,
+  ProductStatus,
 } from "../../domain/entities/product.entity.js";
 import { ProductFilters } from "../../domain/entities/product-filters.entity.js";
 import { CreateProductInput } from "../../domain/entities/create-product-input.entity.js";
@@ -45,6 +46,7 @@ const toDomainProduct = (
     price: raw.price,
     collection: raw.collection,
     discipline: raw.discipline,
+    status: raw.status as ProductStatus,
     specs: raw.specs as string[],
     shippingInfo: raw.shippingInfo,
     isNew: raw.isNew,
@@ -60,6 +62,13 @@ const toDomainProduct = (
     updatedAt: raw.updatedAt,
   };
 };
+
+const getTotalStock = (product: Product): number =>
+  product.variants.reduce(
+    (sum, variant) =>
+      sum + Object.values(variant.stockByStore).reduce((s, qty) => s + qty, 0),
+    0,
+  );
 
 const getOrCreateAttributeValueId = async (
   attributeName: string,
@@ -90,6 +99,7 @@ export const productPrismaRepository: IProductRepository = {
 
     const products = await prisma.product.findMany({
       where: {
+        status: "ACTIVE",
         collection: filters.collection || undefined,
         discipline: filters.discipline || undefined,
         name: filters.search ? { contains: filters.search } : undefined,
@@ -100,11 +110,11 @@ export const productPrismaRepository: IProductRepository = {
       },
       include: PRODUCT_INCLUDE,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
     });
 
-    let result = products.map(toDomainProduct);
+    let result = products
+      .map(toDomainProduct)
+      .filter((p) => getTotalStock(p) > 0);
 
     if (filters.sizes && filters.sizes.length > 0) {
       result = result.filter((p) =>
@@ -118,7 +128,8 @@ export const productPrismaRepository: IProductRepository = {
       );
     }
 
-    return result;
+    const start = (page - 1) * limit;
+    return result.slice(start, start + limit);
   },
 
   findById: async (id: string) => {
@@ -202,6 +213,7 @@ export const productPrismaRepository: IProductRepository = {
 
     return toDomainProduct(fullProduct!);
   },
+
   update: async (id: string, data: UpdateProductInput) => {
     await prisma.product.update({
       where: { id },
@@ -228,5 +240,32 @@ export const productPrismaRepository: IProductRepository = {
 
   delete: async (id: string) => {
     await prisma.product.delete({ where: { id } });
+  },
+
+  updateStatus: async (id: string, status: ProductStatus) => {
+    const updated = await prisma.product.update({
+      where: { id },
+      data: { status },
+      include: PRODUCT_INCLUDE,
+    });
+
+    return toDomainProduct(updated);
+  },
+
+  adjustStock: async (variantId: string, storeId: string, quantity: number) => {
+    await prisma.stock.upsert({
+      where: {
+        productVariantId_storeId: { productVariantId: variantId, storeId },
+      },
+      update: { quantity },
+      create: { productVariantId: variantId, storeId, quantity },
+    });
+
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: { product: { include: PRODUCT_INCLUDE } },
+    });
+
+    return toDomainProduct(variant!.product);
   },
 };

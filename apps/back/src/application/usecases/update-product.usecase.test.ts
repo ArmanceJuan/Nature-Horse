@@ -1,6 +1,9 @@
 import { updateProductUsecase } from "./update-product.usecase.js";
 import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
+import {
+  Product,
+  ProductStatus,
+} from "../../domain/entities/product.entity.js";
 
 describe("updateProductUsecase", () => {
   const fakeProduct: Product = {
@@ -18,6 +21,7 @@ describe("updateProductUsecase", () => {
     variants: [],
     createdAt: new Date(),
     updatedAt: new Date(),
+    status: "ACTIVE",
   };
 
   it("should update the product when it exists", async () => {
@@ -28,6 +32,19 @@ describe("updateProductUsecase", () => {
       update: async (id, data) => ({ ...fakeProduct, ...data }),
       delete: async () => {},
       findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
         throw new Error("Function not implemented.");
       },
     };
@@ -46,6 +63,19 @@ describe("updateProductUsecase", () => {
       update: async (id, data) => ({ ...fakeProduct, ...data }),
       delete: async () => {},
       findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
+      updateStatus: function (
+        id: string,
+        status: ProductStatus,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      adjustStock: function (
+        variantId: string,
+        storeId: string,
+        quantity: number,
+      ): Promise<Product> {
         throw new Error("Function not implemented.");
       },
     };

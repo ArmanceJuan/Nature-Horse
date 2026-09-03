@@ -5,13 +5,16 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  archiveProduct,
+  reactivateProduct,
+  adjustStock,
 } from "../config/dependency-injection.js";
+import { AppError } from "../middlewares/error-handler.middleware.js";
 import {
   validateCreateProductDTO,
   validateUpdateProductDTO,
 } from "../dto/product.dto.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
-import { AppError } from "../middlewares/error-handler.middleware.js";
 
 const parsePrice = (value: unknown): number | undefined => {
   if (typeof value !== "string") return undefined;
@@ -87,5 +90,32 @@ export const productController = {
     const { id } = req.params;
     await deleteProduct(id as string);
     res.status(204).send();
+  }),
+
+  archive: asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const product = await archiveProduct(id as string);
+    res.status(200).json(product);
+  }),
+
+  reactivate: asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const product = await reactivateProduct(id as string);
+    res.status(200).json(product);
+  }),
+
+  adjustStock: asyncHandler(async (req: Request, res: Response) => {
+    const { variantId } = req.params;
+    const { storeId, quantity } = req.body;
+
+    if (typeof storeId !== "string" || typeof quantity !== "number") {
+      throw new AppError(
+        "storeId (string) and quantity (number) are required",
+        400,
+      );
+    }
+
+    const product = await adjustStock(variantId as string, storeId, quantity);
+    res.status(200).json(product);
   }),
 };

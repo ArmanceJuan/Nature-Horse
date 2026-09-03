@@ -15,5 +15,23 @@ router.delete(
   requireRole("ADMIN"),
   productController.delete,
 );
+router.post(
+  "/:id/archive",
+  requireAuth,
+  requireRole("ADMIN"),
+  productController.archive,
+);
+router.post(
+  "/:id/reactivate",
+  requireAuth,
+  requireRole("ADMIN"),
+  productController.reactivate,
+);
+router.patch(
+  "/variants/:variantId/stock",
+  requireAuth,
+  requireRole("ADMIN"),
+  productController.adjustStock,
+);
 
 export default router;

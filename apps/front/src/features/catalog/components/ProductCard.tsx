@@ -14,6 +14,7 @@ export const ProductCard = ({
   fixedWidth,
 }: ProductCardProps) => {
   const navigate = useNavigate();
+  const imageUrl = product.images[0]?.url ?? "";
 
   return (
     <Card
@@ -27,8 +28,8 @@ export const ProductCard = ({
     >
       <CardMedia
         component="img"
-        image={product.imageUrl}
-        alt={product.name}
+        image={imageUrl}
+        alt={product.images[0]?.altText ?? product.name}
         sx={{
           height: fixedWidth ? fixedWidth : { xs: 160, md: 260 },
           borderRadius: 1,

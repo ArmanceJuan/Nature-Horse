@@ -1,3 +1,5 @@
+import { adjustStockUsecase } from "../../application/usecases/adjust-stock.usecase.js";
+import { archiveProductUsecase } from "../../application/usecases/archive-product.usecase.js";
 import { cancelOrderUsecase } from "../../application/usecases/cancel-order.usecase.js";
 import { createOrderUsecase } from "../../application/usecases/create-order.usecase.js";
 import { createProductUsecase } from "../../application/usecases/create-product.usecase.js";
@@ -13,6 +15,7 @@ import { getOrderByIdUsecase } from "../../application/usecases/get-order-by-id.
 import { getProductByIdUsecase } from "../../application/usecases/get-product-by-id.usecase.js";
 import { getStoreByIdUsecase } from "../../application/usecases/get-store-by-id.usecase.js";
 import { loginUserUsecase } from "../../application/usecases/login-user.usecase.js";
+import { reactivateProductUsecase } from "../../application/usecases/reactivate-product.usecase.js";
 import { registerUserUsecase } from "../../application/usecases/register-user.usecase.js";
 import { updateOrderStatusUsecase } from "../../application/usecases/update-order-status.usecase.js";
 import { updateProductUsecase } from "../../application/usecases/update-product.usecase.js";
@@ -56,3 +59,8 @@ export const updateOrderStatus = updateOrderStatusUsecase(
   orderPrismaRepository,
 );
 export const cancelOrder = cancelOrderUsecase(orderPrismaRepository);
+export const archiveProduct = archiveProductUsecase(productPrismaRepository);
+export const reactivateProduct = reactivateProductUsecase(
+  productPrismaRepository,
+);
+export const adjustStock = adjustStockUsecase(productPrismaRepository);

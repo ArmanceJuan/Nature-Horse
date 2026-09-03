@@ -1,9 +1,10 @@
 export interface Store {
   id: string;
   name: string;
-  city: string;
-  shortLabel: string;
   address: string;
-  imageUrl: string;
-  hours: string[];
+  postalCode: string;
+  city: string;
+  phone: string | null;
+  email: string | null;
+  openingHours: string[];
 }

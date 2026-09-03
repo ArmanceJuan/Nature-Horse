@@ -1,4 +1,4 @@
-import { Product } from "../entities/product.entity.js";
+import { Product, ProductStatus } from "../entities/product.entity.js";
 import { ProductFilters } from "../entities/product-filters.entity.js";
 import { CreateProductInput } from "../entities/create-product-input.entity.js";
 import { UpdateProductInput } from "../entities/update-product-input.entity.js";
@@ -10,4 +10,10 @@ export interface IProductRepository {
   create: (data: CreateProductInput) => Promise<Product>;
   update: (id: string, data: UpdateProductInput) => Promise<Product>;
   delete: (id: string) => Promise<void>;
+  updateStatus: (id: string, status: ProductStatus) => Promise<Product>;
+  adjustStock: (
+    variantId: string,
+    storeId: string,
+    quantity: number,
+  ) => Promise<Product>;
 }

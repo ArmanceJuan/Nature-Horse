@@ -69,6 +69,11 @@ model AttributeValue {
   @@unique([attributeId, value])
 }
 
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 model Product {
   id           String           @id @default(uuid())
   name         String
@@ -84,6 +89,7 @@ model Product {
   updatedAt    DateTime         @updatedAt
   images       ProductImage[]
   variants     ProductVariant[]
+  status       ProductStatus    @default(ACTIVE)
 }
 
 model ProductImage {

@@ -1,29 +1,34 @@
-export type Discipline = "dressage" | "obstacle" | "complet" | "loisir";
+export interface ProductImage {
+  id: string;
+  url: string;
+  altText: string | null;
+  position: number;
+}
+
+export interface AttributeValue {
+  attributeName: string;
+  value: string;
+}
 
 export interface ProductVariant {
-  size: string;
-  color: string;
+  id: string;
+  attributeValues: AttributeValue[];
   stockByStore: Record<string, number>;
 }
 
 export interface Product {
   id: string;
   name: string;
-  collection: "textile-performance" | "haute-sellerie";
-  discipline: Discipline;
-  price: number;
-  imageUrl: string;
-  images: string[];
   description: string;
+  price: number;
+  collection: string;
+  discipline: string;
   specs: string[];
   shippingInfo: string;
-  variants: ProductVariant[];
   isNew: boolean;
   isPopular: boolean;
-}
-
-export interface Collection {
-  id: "textile-performance" | "haute-sellerie";
-  name: string;
-  imageUrl: string;
+  images: ProductImage[];
+  variants: ProductVariant[];
+  createdAt: string;
+  updatedAt: string;
 }

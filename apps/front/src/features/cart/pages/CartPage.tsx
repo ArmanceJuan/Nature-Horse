@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -6,16 +8,49 @@ import {
   Button,
   Divider,
   Paper,
+  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
 import { useCart } from "../context/CartContext.js";
+import { useStore } from "../../stores/context/StoreContext.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
+import { ordersApi } from "../api/ordersApi.js";
 
 export const CartPage = () => {
-  const { items, removeItem, updateQuantity, totalPrice } = useCart();
+  const { items, removeItem, updateQuantity, totalPrice, clearCart } =
+    useCart();
+  const { selectedStore } = useStore();
   const isDesktop = useIsDesktop();
+  const navigate = useNavigate();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCheckout = async () => {
+    if (!selectedStore) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await ordersApi.create({
+        storeId: selectedStore.id,
+        items: items.map((item) => ({
+          productVariantId: item.productVariantId,
+          quantity: item.quantity,
+        })),
+      });
+
+      clearCart();
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to place order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (items.length === 0) {
     return (
@@ -33,6 +68,12 @@ export const CartPage = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {items.length} article{items.length > 1 ? "s" : ""} dans votre panier
       </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <Box
         sx={{
@@ -182,6 +223,12 @@ export const CartPage = () => {
             Récapitulatif
           </Typography>
 
+          {selectedStore && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Retrait en boutique : {selectedStore.city}
+            </Typography>
+          )}
+
           <Stack
             direction="row"
             sx={{ justifyContent: "space-between", mb: 1 }}
@@ -193,12 +240,12 @@ export const CartPage = () => {
             direction="row"
             sx={{ justifyContent: "space-between", mb: 2 }}
           >
-            <Typography variant="body2">Livraison standard</Typography>
+            <Typography variant="body2">Click & collect</Typography>
             <Typography
               variant="body2"
               sx={{ color: "primary.main", fontWeight: 600 }}
             >
-              Offerte
+              Gratuit
             </Typography>
           </Stack>
 
@@ -216,8 +263,14 @@ export const CartPage = () => {
             </Typography>
           </Stack>
 
-          <Button variant="contained" fullWidth size="large">
-            Valider mon panier
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            disabled={isSubmitting || !selectedStore}
+            onClick={handleCheckout}
+          >
+            {isSubmitting ? "Validation en cours..." : "Valider mon panier"}
           </Button>
 
           <Typography
@@ -232,7 +285,7 @@ export const CartPage = () => {
             color="text.secondary"
             sx={{ fontSize: "0.8rem" }}
           >
-            🚚 Livraison et retours gratuits
+            🚚 Click & collect uniquement
           </Typography>
         </Paper>
       </Box>

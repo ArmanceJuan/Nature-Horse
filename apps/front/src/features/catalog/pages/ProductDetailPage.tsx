@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -13,13 +13,14 @@ import {
   Alert,
   Breadcrumbs,
   Link,
+  CircularProgress,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
-import { mockProducts } from "../data/mockProducts.js";
+import { productsApi } from "../api/productsApi.js";
+import type { Product } from "../types/product.types.js";
 import { useStore } from "../../stores/context/StoreContext.js";
-import { mockStores } from "../../stores/data/mockStores.js";
 import { useCart } from "../../cart/context/CartContext.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
 
@@ -28,17 +29,52 @@ const COLLECTION_LABELS: Record<string, string> = {
   "haute-sellerie": "Cheval",
 };
 
+const getAttributeValue = (
+  variant: Product["variants"][number],
+  attributeName: string,
+): string | undefined =>
+  variant.attributeValues.find((av) => av.attributeName === attributeName)
+    ?.value;
+
 export const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { selectedStore } = useStore();
+  const { selectedStore, stores } = useStore();
   const { items, addItem, updateQuantity, removeItem } = useCart();
   const isDesktop = useIsDesktop();
-  const product = mockProducts.find((p) => p.id === id);
 
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const loadProduct = async () => {
+      setIsLoading(true);
+      try {
+        const result: Product = await productsApi.getById(id);
+        setProduct(result);
+      } catch (error) {
+        console.error("Failed to load product:", error);
+        setProduct(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,11 +84,25 @@ export const ProductDetailPage = () => {
     );
   }
 
-  const availableSizes = [...new Set(product.variants.map((v) => v.size))];
-  const availableColors = [...new Set(product.variants.map((v) => v.color))];
+  const availableSizes = [
+    ...new Set(
+      product.variants
+        .map((v) => getAttributeValue(v, "Taille"))
+        .filter((v): v is string => !!v),
+    ),
+  ];
+  const availableColors = [
+    ...new Set(
+      product.variants
+        .map((v) => getAttributeValue(v, "Couleur"))
+        .filter((v): v is string => !!v),
+    ),
+  ];
 
   const matchingVariant = product.variants.find(
-    (v) => v.size === selectedSize && v.color === selectedColor,
+    (v) =>
+      getAttributeValue(v, "Taille") === selectedSize &&
+      getAttributeValue(v, "Couleur") === selectedColor,
   );
 
   const stockInCurrentStore =
@@ -62,7 +112,7 @@ export const ProductDetailPage = () => {
 
   const otherStoreWithStock =
     matchingVariant && selectedStore
-      ? mockStores.find(
+      ? stores.find(
           (s) =>
             s.id !== selectedStore.id &&
             (matchingVariant.stockByStore[s.id] ?? 0) > 0,
@@ -74,12 +124,7 @@ export const ProductDetailPage = () => {
   const canAddToCart = matchingVariant && selectedStore && !isOutOfStock;
 
   const cartItem = matchingVariant
-    ? items.find(
-        (i) =>
-          i.productId === product.id &&
-          i.size === matchingVariant.size &&
-          i.color === matchingVariant.color,
-      )
+    ? items.find((i) => i.productVariantId === matchingVariant.id)
     : undefined;
   const quantityInCart = cartItem?.quantity ?? 0;
 
@@ -87,11 +132,12 @@ export const ProductDetailPage = () => {
     if (!canAddToCart || !matchingVariant) return;
     addItem({
       productId: product.id,
+      productVariantId: matchingVariant.id,
       productName: product.name,
-      imageUrl: product.imageUrl,
+      imageUrl: product.images[0]?.url ?? "",
       price: product.price,
-      size: matchingVariant.size,
-      color: matchingVariant.color,
+      size: selectedSize ?? "",
+      color: selectedColor ?? "",
       quantity: 1,
       maxStock: stockInCurrentStore ?? 0,
     });
@@ -101,21 +147,23 @@ export const ProductDetailPage = () => {
     if (!matchingVariant) return;
     updateQuantity(
       product.id,
-      matchingVariant.size,
-      matchingVariant.color,
+      matchingVariant.attributeValues.find((a) => a.attributeName === "Taille")
+        ?.value ?? "",
+      matchingVariant.attributeValues.find((a) => a.attributeName === "Couleur")
+        ?.value ?? "",
       quantityInCart + 1,
     );
   };
 
   const handleDecrease = () => {
-    if (!matchingVariant) return;
+    if (!matchingVariant || !selectedSize || !selectedColor) return;
     if (quantityInCart <= 1) {
-      removeItem(product.id, matchingVariant.size, matchingVariant.color);
+      removeItem(product.id, selectedSize, selectedColor);
     } else {
       updateQuantity(
         product.id,
-        matchingVariant.size,
-        matchingVariant.color,
+        selectedSize,
+        selectedColor,
         quantityInCart - 1,
       );
     }
@@ -140,7 +188,7 @@ export const ProductDetailPage = () => {
           underline="hover"
           color="text.secondary"
         >
-          {COLLECTION_LABELS[product.collection]}
+          {COLLECTION_LABELS[product.collection] ?? product.collection}
         </Link>
         <Typography variant="body2" color="text.primary">
           {product.name}
@@ -157,8 +205,8 @@ export const ProductDetailPage = () => {
         <Box sx={{ flex: isDesktop ? "0 0 50%" : "1" }}>
           <Box
             component="img"
-            src={product.images[selectedImageIndex]}
-            alt={product.name}
+            src={product.images[selectedImageIndex]?.url}
+            alt={product.images[selectedImageIndex]?.altText ?? product.name}
             sx={{
               width: "100%",
               height: isDesktop ? 480 : 320,
@@ -167,31 +215,33 @@ export const ProductDetailPage = () => {
               mb: 1,
             }}
           />
-          <Stack direction="row" spacing={1}>
-            {product.images.map((img, index) => (
-              <Box
-                key={img}
-                component="img"
-                src={img}
-                onClick={() => setSelectedImageIndex(index)}
-                sx={{
-                  width: 72,
-                  height: 72,
-                  objectFit: "cover",
-                  borderRadius: 1,
-                  cursor: "pointer",
-                  border:
-                    index === selectedImageIndex
-                      ? "2px solid"
-                      : "2px solid transparent",
-                  borderColor:
-                    index === selectedImageIndex
-                      ? "primary.main"
-                      : "transparent",
-                }}
-              />
-            ))}
-          </Stack>
+          {product.images.length > 1 && (
+            <Stack direction="row" spacing={1}>
+              {product.images.map((img, index) => (
+                <Box
+                  key={img.id}
+                  component="img"
+                  src={img.url}
+                  onClick={() => setSelectedImageIndex(index)}
+                  sx={{
+                    width: 72,
+                    height: 72,
+                    objectFit: "cover",
+                    borderRadius: 1,
+                    cursor: "pointer",
+                    border:
+                      index === selectedImageIndex
+                        ? "2px solid"
+                        : "2px solid transparent",
+                    borderColor:
+                      index === selectedImageIndex
+                        ? "primary.main"
+                        : "transparent",
+                  }}
+                />
+              ))}
+            </Stack>
+          )}
         </Box>
 
         <Box sx={{ flex: 1 }}>
@@ -208,35 +258,51 @@ export const ProductDetailPage = () => {
             {product.price} €
           </Typography>
 
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-            Taille
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-            {availableSizes.map((size) => (
-              <Chip
-                key={size}
-                label={size}
-                onClick={() => setSelectedSize(size)}
-                color={selectedSize === size ? "primary" : "default"}
-                variant={selectedSize === size ? "filled" : "outlined"}
-              />
-            ))}
-          </Stack>
+          {availableSizes.length > 0 && (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                Taille
+              </Typography>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mb: 2, flexWrap: "wrap" }}
+              >
+                {availableSizes.map((size) => (
+                  <Chip
+                    key={size}
+                    label={size}
+                    onClick={() => setSelectedSize(size)}
+                    color={selectedSize === size ? "primary" : "default"}
+                    variant={selectedSize === size ? "filled" : "outlined"}
+                  />
+                ))}
+              </Stack>
+            </>
+          )}
 
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-            Couleur / Finition
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-            {availableColors.map((color) => (
-              <Chip
-                key={color}
-                label={color}
-                onClick={() => setSelectedColor(color)}
-                color={selectedColor === color ? "primary" : "default"}
-                variant={selectedColor === color ? "filled" : "outlined"}
-              />
-            ))}
-          </Stack>
+          {availableColors.length > 0 && (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+                Couleur / Finition
+              </Typography>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mb: 2, flexWrap: "wrap" }}
+              >
+                {availableColors.map((color) => (
+                  <Chip
+                    key={color}
+                    label={color}
+                    onClick={() => setSelectedColor(color)}
+                    color={selectedColor === color ? "primary" : "default"}
+                    variant={selectedColor === color ? "filled" : "outlined"}
+                  />
+                ))}
+              </Stack>
+            </>
+          )}
 
           {matchingVariant && selectedStore && (
             <Box sx={{ mb: 2 }}>
