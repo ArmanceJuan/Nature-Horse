@@ -130,6 +130,17 @@ export const productPrismaRepository: IProductRepository = {
     return product ? toDomainProduct(product) : null;
   },
 
+  findByVariantId: async (variantId: string) => {
+    const variant = await prisma.productVariant.findUnique({
+      where: { id: variantId },
+      include: { product: { include: PRODUCT_INCLUDE } },
+    });
+
+    if (!variant) return null;
+
+    return toDomainProduct(variant.product);
+  },
+
   create: async (data: CreateProductInput) => {
     const product = await prisma.product.create({
       data: {

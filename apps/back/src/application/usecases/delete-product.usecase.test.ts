@@ -31,6 +31,9 @@ describe("deleteProductUsecase", () => {
       delete: async () => {
         deleteWasCalled = true;
       },
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const deleteProduct = deleteProductUsecase(fakeRepository);
@@ -46,6 +49,9 @@ describe("deleteProductUsecase", () => {
       create: async () => fakeProduct,
       update: async () => fakeProduct,
       delete: async () => {},
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const deleteProduct = deleteProductUsecase(fakeRepository);

@@ -27,6 +27,9 @@ describe("updateProductUsecase", () => {
       create: async () => fakeProduct,
       update: async (id, data) => ({ ...fakeProduct, ...data }),
       delete: async () => {},
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const updateProduct = updateProductUsecase(fakeRepository);
@@ -42,6 +45,9 @@ describe("updateProductUsecase", () => {
       create: async () => fakeProduct,
       update: async (id, data) => ({ ...fakeProduct, ...data }),
       delete: async () => {},
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const updateProduct = updateProductUsecase(fakeRepository);

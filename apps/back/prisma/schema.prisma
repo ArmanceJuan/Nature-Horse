@@ -7,25 +7,26 @@ datasource db {
   provider = "mysql"
 }
 
-model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
-  password   String
-  firstName  String
-  lastName   String
-  phone      String?
-  role       Role     @default(CLIENT)
-  otp_enable Boolean  @default(false)
-  otp_secret String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  a2fBackupCode A2FBackupCode?
-}
-
 enum Role {
   ADMIN
   STAFF
   CLIENT
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          Role           @default(CLIENT)
+  otp_enable    Boolean        @default(false)
+  otp_secret    String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  a2fBackupCode A2FBackupCode?
+  orders        Order[]
 }
 
 model A2FBackupCode {
@@ -49,6 +50,7 @@ model Store {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   stocks       Stock[]
+  orders       Order[]
 }
 
 model Attribute {
@@ -68,18 +70,18 @@ model AttributeValue {
 }
 
 model Product {
-  id           String         @id @default(uuid())
+  id           String           @id @default(uuid())
   name         String
-  description  String         @db.Text
+  description  String           @db.Text
   price        Float
   collection   String
   discipline   String
   specs        Json
-  shippingInfo String         @db.Text
-  isNew        Boolean        @default(false)
-  isPopular    Boolean        @default(false)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  shippingInfo String           @db.Text
+  isNew        Boolean          @default(false)
+  isPopular    Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
   images       ProductImage[]
   variants     ProductVariant[]
 }
@@ -103,6 +105,7 @@ model ProductVariant {
   updatedAt       DateTime                        @updatedAt
   attributeValues ProductVariantAttributeValue[]
   stocks          Stock[]
+  orderItems      OrderItem[]
 }
 
 model ProductVariantAttributeValue {
@@ -125,4 +128,35 @@ model Stock {
   updatedAt        DateTime       @updatedAt
 
   @@unique([productVariantId, storeId])
+}
+
+enum OrderStatus {
+  PENDING
+  READY_FOR_PICKUP
+  PICKED_UP
+  CANCELLED
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  storeId    String
+  store      Store       @relation(fields: [storeId], references: [id])
+  status     OrderStatus @default(PENDING)
+  totalPrice Float
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id               String         @id @default(uuid())
+  orderId          String
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariantId String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+  productName      String
+  quantity         Int
+  unitPrice        Float
 }

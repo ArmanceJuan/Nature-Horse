@@ -12,6 +12,7 @@ import storeRoutes from "./routes/store.routes.js";
 export const app = express();
 
 import rateLimit from "express-rate-limit";
+import orderRoutes from "./routes/order.routes.js";
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -43,5 +44,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stores", storeRoutes);
+app.use("/api/orders", orderRoutes);
 
 app.use(errorHandler);

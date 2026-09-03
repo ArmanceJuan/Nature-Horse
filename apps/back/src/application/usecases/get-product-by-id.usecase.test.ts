@@ -35,6 +35,9 @@ describe("getProductByIdUsecase", () => {
       delete: function (id: string): Promise<void> {
         throw new Error("Function not implemented.");
       },
+      findByVariantId: function (variantId: string): Promise<Product | null> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const getProductById = getProductByIdUsecase(fakeRepository);
@@ -55,6 +58,9 @@ describe("getProductByIdUsecase", () => {
         throw new Error("Function not implemented.");
       },
       delete: function (id: string): Promise<void> {
+        throw new Error("Function not implemented.");
+      },
+      findByVariantId: function (variantId: string): Promise<Product | null> {
         throw new Error("Function not implemented.");
       },
     };
