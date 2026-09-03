@@ -36,3 +36,93 @@ model A2FBackupCode {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Store {
+  id           String   @id @default(uuid())
+  name         String
+  address      String
+  postalCode   String
+  city         String
+  phone        String?
+  email        String?
+  openingHours Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  stocks       Stock[]
+}
+
+model Attribute {
+  id     String           @id @default(uuid())
+  name   String           @unique
+  values AttributeValue[]
+}
+
+model AttributeValue {
+  id          String                          @id @default(uuid())
+  attributeId String
+  attribute   Attribute                       @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  value       String
+  variants    ProductVariantAttributeValue[]
+
+  @@unique([attributeId, value])
+}
+
+model Product {
+  id           String         @id @default(uuid())
+  name         String
+  description  String         @db.Text
+  price        Float
+  collection   String
+  discipline   String
+  specs        Json
+  shippingInfo String         @db.Text
+  isNew        Boolean        @default(false)
+  isPopular    Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  images       ProductImage[]
+  variants     ProductVariant[]
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  altText   String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model ProductVariant {
+  id              String                          @id @default(uuid())
+  productId       String
+  product         Product                         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku             String?                         @unique
+  createdAt       DateTime                        @default(now())
+  updatedAt       DateTime                        @updatedAt
+  attributeValues ProductVariantAttributeValue[]
+  stocks          Stock[]
+}
+
+model ProductVariantAttributeValue {
+  id               String         @id @default(uuid())
+  productVariantId String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  attributeValueId String
+  attributeValue   AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Cascade)
+
+  @@unique([productVariantId, attributeValueId])
+}
+
+model Stock {
+  id               String         @id @default(uuid())
+  productVariantId String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  storeId          String
+  store            Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  quantity         Int            @default(0)
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([productVariantId, storeId])
+}

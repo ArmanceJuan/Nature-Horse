@@ -2,10 +2,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  List,
-  ListItemButton,
-  ListItemText,
+  Box,
   Typography,
+  Button,
+  Stack,
 } from "@mui/material";
 import { useStore } from "../context/StoreContext.js";
 
@@ -38,20 +38,72 @@ export const StoreSelectionModal = () => {
     >
       <DialogTitle>Choisissez votre boutique</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          Sélectionnez la boutique dont vous souhaitez voir les produits et la
-          disponibilité.
-        </Typography>
-        <List>
+        <Stack spacing={2}>
           {stores.map((store) => (
-            <ListItemButton
+            <Box
               key={store.id}
               onClick={() => setSelectedStore(store)}
+              sx={{
+                position: "relative",
+                height: 150,
+                borderRadius: 1,
+                overflow: "hidden",
+                cursor: "pointer",
+                backgroundImage: `url(${store.imageUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }}
             >
-              <ListItemText primary={store.city} secondary={store.address} />
-            </ListItemButton>
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.75), transparent 60%)",
+                }}
+              />
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  p: 1.5,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h4"
+                    sx={{ fontSize: "1.1rem", color: "white" }}
+                  >
+                    {store.city}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "white" }}>
+                    {store.shortLabel}
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="contained"
+                  sx={{
+                    bgcolor: "white",
+                    color: "text.primary",
+                    "&:hover": { bgcolor: "#f0f0f0" },
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedStore(store);
+                  }}
+                >
+                  Découvrir
+                </Button>
+              </Box>
+            </Box>
           ))}
-        </List>
+        </Stack>
       </DialogContent>
     </Dialog>
   );

@@ -1,0 +1,111 @@
+import { prisma } from "../../config/prisma.js";
+import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
+import {
+  Product,
+  ProductVariant,
+} from "../../domain/entities/product.entity.js";
+import { ProductFilters } from "../../domain/entities/product-filters.entity.js";
+
+const PRODUCT_INCLUDE = {
+  images: { orderBy: { position: "asc" as const } },
+  variants: {
+    include: {
+      attributeValues: {
+        include: { attributeValue: { include: { attribute: true } } },
+      },
+      stocks: true,
+    },
+  },
+};
+
+type PrismaProductWithRelations = Awaited<ReturnType<typeof mapQuery>>;
+
+const mapQuery = () => prisma.product.findFirst({ include: PRODUCT_INCLUDE });
+
+const toDomainProduct = (
+  raw: NonNullable<PrismaProductWithRelations>,
+): Product => {
+  const variants: ProductVariant[] = raw.variants.map((v) => ({
+    id: v.id,
+    attributeValues: v.attributeValues.map((av) => ({
+      attributeName: av.attributeValue.attribute.name,
+      value: av.attributeValue.value,
+    })),
+    stockByStore: Object.fromEntries(
+      v.stocks.map((s) => [s.storeId, s.quantity]),
+    ),
+  }));
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    description: raw.description,
+    price: raw.price,
+    collection: raw.collection,
+    discipline: raw.discipline,
+    specs: raw.specs as string[],
+    shippingInfo: raw.shippingInfo,
+    isNew: raw.isNew,
+    isPopular: raw.isPopular,
+    images: raw.images.map((img) => ({
+      id: img.id,
+      url: img.url,
+      altText: img.altText,
+      position: img.position,
+    })),
+    variants,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+  };
+};
+
+export const productPrismaRepository: IProductRepository = {
+  findAll: async (filters: ProductFilters) => {
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit =
+      filters.limit && filters.limit > 0 && filters.limit <= 100
+        ? filters.limit
+        : 20;
+
+    const products = await prisma.product.findMany({
+      where: {
+        collection: filters.collection || undefined,
+        discipline: filters.discipline || undefined,
+        name: filters.search ? { contains: filters.search } : undefined,
+        price: {
+          gte: filters.minPrice ?? undefined,
+          lte: filters.maxPrice ?? undefined,
+        },
+      },
+      include: PRODUCT_INCLUDE,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    let result = products.map(toDomainProduct);
+
+    if (filters.sizes && filters.sizes.length > 0) {
+      result = result.filter((p) =>
+        p.variants.some((v) =>
+          v.attributeValues.some(
+            (av) =>
+              av.attributeName === "Taille" &&
+              filters.sizes!.includes(av.value),
+          ),
+        ),
+      );
+    }
+
+    return result;
+  },
+
+  findById: async (id: string) => {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: PRODUCT_INCLUDE,
+    });
+
+    return product ? toDomainProduct(product) : null;
+  },
+};

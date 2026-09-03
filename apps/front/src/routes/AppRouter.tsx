@@ -6,7 +6,8 @@ import { Layout } from "../shared/components/layout/Layout";
 import { HomePage } from "../features/catalog/pages/HomePage";
 import { CatalogPage } from "../features/catalog/pages/CatalogPage";
 import { ProductDetailPage } from "../features/catalog/pages/ProductDetailPage";
-import { CartPage } from "../features/catalog/pages/CartPage";
+import { CartPage } from "../features/cart/pages/CartPage";
+import { AdminPage } from "../features/admin/pages/AdminPage";
 
 export const AppRouter = () => {
   return (
@@ -20,7 +21,7 @@ export const AppRouter = () => {
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/cart" element={<CartPage />} />{" "}
           <Route path="/stores" element={<div>Boutiques (à construire)</div>} />
-          <Route path="/admin" element={<div>Admin (à construire)</div>} />
+          <Route path="/admin" element={<AdminPage />} />{" "}
           <Route path="/otp-setup" element={<OtpSetupPage />} />
         </Route>
       </Routes>

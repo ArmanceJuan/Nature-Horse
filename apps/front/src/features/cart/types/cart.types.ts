@@ -6,4 +6,5 @@ export interface CartItem {
   size: string;
   color: string;
   quantity: number;
+  maxStock: number;
 }

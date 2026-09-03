@@ -1,34 +1,43 @@
-import type { Product } from "../types/product.types.js";
+import "dotenv/config";
+import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { dbConfig } from "../src/config/prisma.js";
+
+const adapter = new PrismaMariaDb(dbConfig);
+const prisma = new PrismaClient({ adapter });
+
+interface SeedVariant {
+  size: string;
+  color: string;
+  stockByStore: Record<string, number>;
+}
+
+interface SeedProduct {
+  id: string;
+  name: string;
+  collection: "textile-performance" | "haute-sellerie";
+  discipline: "dressage" | "obstacle" | "complet" | "loisir";
+  price: number;
+  images: string[];
+  description: string;
+  specs: string[];
+  shippingInfo: string;
+  variants: SeedVariant[];
+  isNew: boolean;
+  isPopular: boolean;
+}
 
 const SHIPPING_INFO =
-  "Livraison à domicile sous 3-5 jours ouvrés, ou click & collect disponible 1h après validation de la commande.";
+  "Click & collect disponible 1h après validation de la commande.";
 
-// Pool de photos équestres réutilisées pour varier les galeries
-const HORSE_PHOTO = "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a";
-const LEATHER_PHOTO =
-  "https://images.unsplash.com/photo-1551028719-00167b16eac5";
-const SHIRTS_PHOTO =
-  "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf";
-const STABLE_PHOTO =
-  "https://images.unsplash.com/photo-1598974357801-cbca100e65d3";
-const RIDER_PHOTO =
-  "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7";
-const SADDLE_CLOSEUP_PHOTO =
-  "https://images.unsplash.com/photo-1519681393784-d120267933ba";
-
-export const mockProducts: Product[] = [
+const products: SeedProduct[] = [
   {
     id: "veste-performance-1",
     name: "Veste Performance Isotherme",
     collection: "textile-performance",
     discipline: "loisir",
     price: 189,
-    imageUrl: `${LEATHER_PHOTO}?w=600`,
-    images: [
-      `${LEATHER_PHOTO}?w=600`,
-      `${RIDER_PHOTO}?w=600`,
-      `${STABLE_PHOTO}?w=600`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600"],
     description:
       "Veste technique isotherme conçue pour les longues sessions d'entraînement par temps froid.",
     specs: [
@@ -59,12 +68,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "dressage",
     price: 2450,
-    imageUrl: `${HORSE_PHOTO}?w=600`,
-    images: [
-      `${HORSE_PHOTO}?w=600`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=600`,
-      `${STABLE_PHOTO}?w=601`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=600"],
     description:
       "Selle d'obstacle en cuir de veau pleine fleur, arçon flexible et matelassage sur mesure.",
     specs: [
@@ -90,11 +94,8 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "loisir",
     price: 65,
-    imageUrl: `${SHIRTS_PHOTO}?w=600`,
     images: [
-      `${SHIRTS_PHOTO}?w=600`,
-      `${RIDER_PHOTO}?w=601`,
-      `${LEATHER_PHOTO}?w=601`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600",
     ],
     description:
       "Polo léger en maille technique, idéal pour l'entraînement quotidien.",
@@ -126,12 +127,7 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "loisir",
     price: 245,
-    imageUrl: `${LEATHER_PHOTO}?w=601`,
-    images: [
-      `${LEATHER_PHOTO}?w=601`,
-      `${SHIRTS_PHOTO}?w=602`,
-      `${RIDER_PHOTO}?w=602`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=601"],
     description:
       "Bombers en cuir souple, coupe intemporelle pour un usage quotidien.",
     specs: [
@@ -157,12 +153,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "obstacle",
     price: 95,
-    imageUrl: `${HORSE_PHOTO}?w=601`,
-    images: [
-      `${HORSE_PHOTO}?w=601`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=601`,
-      `${LEATHER_PHOTO}?w=603`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=601"],
     description: "Étrivières en cuir tressé, résistance et confort renforcés.",
     specs: [
       "Cuir tressé nerveux",
@@ -187,11 +178,8 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "dressage",
     price: 129,
-    imageUrl: `${SHIRTS_PHOTO}?w=601`,
     images: [
-      `${SHIRTS_PHOTO}?w=601`,
-      `${RIDER_PHOTO}?w=603`,
-      `${STABLE_PHOTO}?w=602`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=601",
     ],
     description:
       "Pantalon technique avec empiècements silicone pour une meilleure adhérence en selle.",
@@ -223,12 +211,7 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "obstacle",
     price: 175,
-    imageUrl: `${LEATHER_PHOTO}?w=602`,
-    images: [
-      `${LEATHER_PHOTO}?w=602`,
-      `${RIDER_PHOTO}?w=604`,
-      `${HORSE_PHOTO}?w=602`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=602"],
     description: "Casque d'équitation certifié, système de ventilation avancé.",
     specs: [
       "Certification VG1",
@@ -258,12 +241,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "dressage",
     price: 155,
-    imageUrl: `${HORSE_PHOTO}?w=602`,
-    images: [
-      `${HORSE_PHOTO}?w=602`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=602`,
-      `${STABLE_PHOTO}?w=603`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=602"],
     description:
       "Bridon ergonomique conçu pour répartir la pression et le confort du cheval.",
     specs: [
@@ -289,12 +267,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "dressage",
     price: 89,
-    imageUrl: `${HORSE_PHOTO}?w=603`,
-    images: [
-      `${HORSE_PHOTO}?w=603`,
-      `${STABLE_PHOTO}?w=604`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=603`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=603"],
     description:
       "Tapis technique à mousse mémoire de forme, absorption des chocs optimisée.",
     specs: [
@@ -325,12 +298,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "obstacle",
     price: 55,
-    imageUrl: `${HORSE_PHOTO}?w=604`,
-    images: [
-      `${HORSE_PHOTO}?w=604`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=604`,
-      `${STABLE_PHOTO}?w=605`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=604"],
     description:
       "Guêtres souples en néoprène pour la protection des membres à l'entraînement.",
     specs: [
@@ -356,11 +324,8 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "complet",
     price: 79,
-    imageUrl: `${SHIRTS_PHOTO}?w=602`,
     images: [
-      `${SHIRTS_PHOTO}?w=602`,
-      `${RIDER_PHOTO}?w=605`,
-      `${LEATHER_PHOTO}?w=604`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=602",
     ],
     description:
       "Chemise de compétition en tissu respirant, col compatible cravate de concours.",
@@ -392,12 +357,7 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "loisir",
     price: 99,
-    imageUrl: `${LEATHER_PHOTO}?w=603`,
-    images: [
-      `${LEATHER_PHOTO}?w=603`,
-      `${SHIRTS_PHOTO}?w=603`,
-      `${RIDER_PHOTO}?w=606`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=603"],
     description: "Gilet léger matelassé, parfait pour les journées mi-saison.",
     specs: [
       "Matelassage léger",
@@ -420,14 +380,9 @@ export const mockProducts: Product[] = [
     id: "cravache-carbone-1",
     name: "Cravache Carbone Compétition",
     collection: "haute-sellerie",
-    discipline: "complet",
+    discipline: "obstacle",
     price: 45,
-    imageUrl: `${HORSE_PHOTO}?w=605`,
-    images: [
-      `${HORSE_PHOTO}?w=605`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=605`,
-      `${STABLE_PHOTO}?w=606`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=605"],
     description:
       "Cravache légère en fibre de carbone, poignée cuir cousue main.",
     specs: [
@@ -453,12 +408,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "dressage",
     price: 495,
-    imageUrl: `${HORSE_PHOTO}?w=606`,
-    images: [
-      `${HORSE_PHOTO}?w=606`,
-      `${LEATHER_PHOTO}?w=605`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=606`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=606"],
     description:
       "Bottes hautes en cuir de veau, tige ajustée sur mesure, semelle technique.",
     specs: [
@@ -489,12 +439,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 39,
-    imageUrl: `${HORSE_PHOTO}?w=607`,
-    images: [
-      `${HORSE_PHOTO}?w=607`,
-      `${STABLE_PHOTO}?w=607`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=607`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=607"],
     description:
       "Couvre-reins en polaire pour l'échauffement et la récupération.",
     specs: [
@@ -518,13 +463,10 @@ export const mockProducts: Product[] = [
     id: "gants-equitation-1",
     name: "Gants d'Équitation Grip Technique",
     collection: "textile-performance",
-    discipline: "obstacle",
+    discipline: "complet",
     price: 29,
-    imageUrl: `${SHIRTS_PHOTO}?w=603`,
     images: [
-      `${SHIRTS_PHOTO}?w=603`,
-      `${LEATHER_PHOTO}?w=606`,
-      `${RIDER_PHOTO}?w=607`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=603",
     ],
     description:
       "Gants légers avec paume renforcée pour une meilleure tenue des rênes.",
@@ -556,12 +498,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "dressage",
     price: 1980,
-    imageUrl: `${HORSE_PHOTO}?w=608`,
-    images: [
-      `${HORSE_PHOTO}?w=608`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=608`,
-      `${STABLE_PHOTO}?w=608`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=608"],
     description:
       "Selle de dressage à quartiers longs, contact profond et stable.",
     specs: [
@@ -587,12 +524,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 119,
-    imageUrl: `${HORSE_PHOTO}?w=609`,
-    images: [
-      `${HORSE_PHOTO}?w=609`,
-      `${LEATHER_PHOTO}?w=607`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=609`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=609"],
     description:
       "Chaps en cuir souple, protection et esthétique pour l'entraînement.",
     specs: [
@@ -618,12 +550,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "obstacle",
     price: 35,
-    imageUrl: `${HORSE_PHOTO}?w=610`,
-    images: [
-      `${HORSE_PHOTO}?w=610`,
-      `${STABLE_PHOTO}?w=609`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=610`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=610"],
     description:
       "Sursangle avec panneaux élastiques pour un confort optimal du cheval.",
     specs: [
@@ -649,12 +576,7 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "complet",
     price: 220,
-    imageUrl: `${LEATHER_PHOTO}?w=604`,
-    images: [
-      `${LEATHER_PHOTO}?w=604`,
-      `${RIDER_PHOTO}?w=608`,
-      `${SHIRTS_PHOTO}?w=604`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=604"],
     description:
       "Veste de compétition en tissu stretch technique, coupe cintrée réglementaire.",
     specs: [
@@ -685,12 +607,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 42,
-    imageUrl: `${STABLE_PHOTO}?w=610`,
-    images: [
-      `${STABLE_PHOTO}?w=610`,
-      `${HORSE_PHOTO}?w=611`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=611`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=611"],
     description: "Kit complet de pansage avec étrille, brosses et cure-pieds.",
     specs: [
       "5 pièces incluses",
@@ -715,12 +632,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 25,
-    imageUrl: `${LEATHER_PHOTO}?w=608`,
-    images: [
-      `${LEATHER_PHOTO}?w=608`,
-      `${STABLE_PHOTO}?w=611`,
-      `${HORSE_PHOTO}?w=612`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=612"],
     description:
       "Collier en cuir tressé, robuste et confortable pour chien de ferme ou de compagnie.",
     specs: [
@@ -751,12 +663,7 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "loisir",
     price: 49,
-    imageUrl: `${LEATHER_PHOTO}?w=609`,
-    images: [
-      `${LEATHER_PHOTO}?w=609`,
-      `${STABLE_PHOTO}?w=612`,
-      `${RIDER_PHOTO}?w=609`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=605"],
     description:
       "Manteau imperméable et coupe-vent pour les sorties par temps difficile.",
     specs: [
@@ -782,12 +689,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 32,
-    imageUrl: `${HORSE_PHOTO}?w=613`,
-    images: [
-      `${HORSE_PHOTO}?w=613`,
-      `${STABLE_PHOTO}?w=613`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=612`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=613"],
     description:
       "Longe en coton tressé, prise en main confortable pour le travail à pied.",
     specs: [
@@ -813,12 +715,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 18,
-    imageUrl: `${HORSE_PHOTO}?w=614`,
-    images: [
-      `${HORSE_PHOTO}?w=614`,
-      `${STABLE_PHOTO}?w=614`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=613`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=614"],
     description: "Spray démêlant et brillance pour crinière et queue.",
     specs: ["Formule sans rinçage", "Anti-UV", "500ml", "Sans silicone"],
     shippingInfo: SHIPPING_INFO,
@@ -836,13 +733,10 @@ export const mockProducts: Product[] = [
     id: "chaussettes-equitation-1",
     name: "Chaussettes Techniques Équitation",
     collection: "textile-performance",
-    discipline: "loisir",
+    discipline: "complet",
     price: 15,
-    imageUrl: `${SHIRTS_PHOTO}?w=604`,
     images: [
-      `${SHIRTS_PHOTO}?w=604`,
-      `${RIDER_PHOTO}?w=610`,
-      `${LEATHER_PHOTO}?w=610`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=604",
     ],
     description: "Chaussettes hautes techniques, zones de compression ciblées.",
     specs: [
@@ -873,12 +767,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "obstacle",
     price: 65,
-    imageUrl: `${HORSE_PHOTO}?w=615`,
-    images: [
-      `${HORSE_PHOTO}?w=615`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=614`,
-      `${STABLE_PHOTO}?w=615`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=615"],
     description: "Guêtres à gel réfrigérant pour la récupération après effort.",
     specs: [
       "Gel réfrigérant intégré",
@@ -903,12 +792,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 55,
-    imageUrl: `${LEATHER_PHOTO}?w=611`,
-    images: [
-      `${LEATHER_PHOTO}?w=611`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=615`,
-      `${HORSE_PHOTO}?w=616`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=616"],
     description: "Ceinture en cuir pleine fleur, boucle en forme d'étrier.",
     specs: [
       "Cuir pleine fleur",
@@ -931,14 +815,9 @@ export const mockProducts: Product[] = [
     id: "sac-cavaliere-1",
     name: "Sac de Sport Cavalière",
     collection: "textile-performance",
-    discipline: "complet",
+    discipline: "loisir",
     price: 85,
-    imageUrl: `${LEATHER_PHOTO}?w=612`,
-    images: [
-      `${LEATHER_PHOTO}?w=612`,
-      `${RIDER_PHOTO}?w=611`,
-      `${SHIRTS_PHOTO}?w=605`,
-    ],
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16eac5?w=606"],
     description:
       "Sac de sport spacieux avec compartiment dédié pour les bottes.",
     specs: [
@@ -964,12 +843,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "obstacle",
     price: 38,
-    imageUrl: `${HORSE_PHOTO}?w=617`,
-    images: [
-      `${HORSE_PHOTO}?w=617`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=616`,
-      `${STABLE_PHOTO}?w=616`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=617"],
     description:
       "Protections légères pour les boulets à l'entraînement quotidien.",
     specs: [
@@ -995,11 +869,8 @@ export const mockProducts: Product[] = [
     collection: "textile-performance",
     discipline: "loisir",
     price: 25,
-    imageUrl: `${SHIRTS_PHOTO}?w=605`,
     images: [
-      `${SHIRTS_PHOTO}?w=605`,
-      `${RIDER_PHOTO}?w=612`,
-      `${LEATHER_PHOTO}?w=613`,
+      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=605",
     ],
     description: "Casquette brodée, coton bio, réglage arrière ajustable.",
     specs: [
@@ -1025,12 +896,7 @@ export const mockProducts: Product[] = [
     collection: "haute-sellerie",
     discipline: "loisir",
     price: 45,
-    imageUrl: `${STABLE_PHOTO}?w=617`,
-    images: [
-      `${STABLE_PHOTO}?w=617`,
-      `${HORSE_PHOTO}?w=618`,
-      `${SADDLE_CLOSEUP_PHOTO}?w=617`,
-    ],
+    images: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=618"],
     description:
       "Panier moelleux et déhoussable pour le confort de votre chat.",
     specs: [
@@ -1051,3 +917,116 @@ export const mockProducts: Product[] = [
     isPopular: false,
   },
 ];
+
+async function main() {
+  console.log("🌱 Seeding attributes...");
+
+  const tailleAttribute = await prisma.attribute.upsert({
+    where: { name: "Taille" },
+    update: {},
+    create: { name: "Taille" },
+  });
+
+  const couleurAttribute = await prisma.attribute.upsert({
+    where: { name: "Couleur" },
+    update: {},
+    create: { name: "Couleur" },
+  });
+
+  const allSizes = [
+    ...new Set(products.flatMap((p) => p.variants.map((v) => v.size))),
+  ];
+  const allColors = [
+    ...new Set(products.flatMap((p) => p.variants.map((v) => v.color))),
+  ];
+
+  const sizeValueMap = new Map<string, string>();
+  for (const size of allSizes) {
+    const value = await prisma.attributeValue.upsert({
+      where: {
+        attributeId_value: { attributeId: tailleAttribute.id, value: size },
+      },
+      update: {},
+      create: { attributeId: tailleAttribute.id, value: size },
+    });
+    sizeValueMap.set(size, value.id);
+  }
+
+  const colorValueMap = new Map<string, string>();
+  for (const color of allColors) {
+    const value = await prisma.attributeValue.upsert({
+      where: {
+        attributeId_value: { attributeId: couleurAttribute.id, value: color },
+      },
+      update: {},
+      create: { attributeId: couleurAttribute.id, value: color },
+    });
+    colorValueMap.set(color, value.id);
+  }
+
+  console.log(
+    `✅ ${allSizes.length} size values, ${allColors.length} color values`,
+  );
+  console.log("🌱 Seeding products...");
+
+  for (const p of products) {
+    await prisma.product.deleteMany({ where: { id: p.id } });
+
+    const product = await prisma.product.create({
+      data: {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        collection: p.collection,
+        discipline: p.discipline,
+        specs: p.specs,
+        shippingInfo: p.shippingInfo,
+        isNew: p.isNew,
+        isPopular: p.isPopular,
+        images: {
+          create: p.images.map((url, index) => ({
+            url,
+            altText: p.name,
+            position: index,
+          })),
+        },
+      },
+    });
+
+    for (const variant of p.variants) {
+      const createdVariant = await prisma.productVariant.create({
+        data: {
+          productId: product.id,
+          attributeValues: {
+            create: [
+              { attributeValueId: sizeValueMap.get(variant.size)! },
+              { attributeValueId: colorValueMap.get(variant.color)! },
+            ],
+          },
+        },
+      });
+
+      for (const [storeId, quantity] of Object.entries(variant.stockByStore)) {
+        await prisma.stock.create({
+          data: {
+            productVariantId: createdVariant.id,
+            storeId,
+            quantity,
+          },
+        });
+      }
+    }
+  }
+
+  console.log(`✅ ${products.length} products seeded with variants and stocks`);
+}
+
+main()
+  .catch((error) => {
+    console.error("❌ Seed failed:", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

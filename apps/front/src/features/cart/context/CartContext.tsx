@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import type { CartItem } from "../types/cart.types";
+import type { CartItem } from "../types/cart.types.js";
 
 const STORAGE_KEY = "nature-horse-cart";
 
@@ -44,14 +44,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       );
 
       if (existing) {
+        const newQuantity = Math.min(
+          existing.quantity + newItem.quantity,
+          existing.maxStock,
+        );
         return prev.map((i) =>
-          i === existing
-            ? { ...i, quantity: i.quantity + newItem.quantity }
-            : i,
+          i === existing ? { ...i, quantity: newQuantity } : i,
         );
       }
 
-      return [...prev, newItem];
+      return [
+        ...prev,
+        { ...newItem, quantity: Math.min(newItem.quantity, newItem.maxStock) },
+      ];
     });
   };
 
@@ -77,7 +82,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setItems((prev) =>
       prev.map((i) =>
         i.productId === productId && i.size === size && i.color === color
-          ? { ...i, quantity }
+          ? { ...i, quantity: Math.min(quantity, i.maxStock) }
           : i,
       ),
     );

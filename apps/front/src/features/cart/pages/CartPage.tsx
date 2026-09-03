@@ -10,8 +10,9 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
+import { useCart } from "../context/CartContext.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
-import { useCart } from "../../cart/context/CartContext.js";
+
 export const CartPage = () => {
   const { items, removeItem, updateQuantity, totalPrice } = useCart();
   const isDesktop = useIsDesktop();
@@ -101,47 +102,60 @@ export const CartPage = () => {
                       alignItems: "center",
                     }}
                   >
-                    <Stack
-                      direction="row"
-                      sx={{
-                        alignItems: "center",
-                        border: "1px solid rgba(0,0,0,0.2)",
-                        borderRadius: 1,
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.size,
-                            item.color,
-                            item.quantity - 1,
-                          )
-                        }
+                    <Box>
+                      <Stack
+                        direction="row"
+                        sx={{
+                          alignItems: "center",
+                          border: "1px solid rgba(0,0,0,0.2)",
+                          borderRadius: 1,
+                        }}
                       >
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                      <Typography
-                        variant="body2"
-                        sx={{ minWidth: 20, textAlign: "center" }}
-                      >
-                        {item.quantity}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.size,
-                            item.color,
-                            item.quantity + 1,
-                          )
-                        }
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            updateQuantity(
+                              item.productId,
+                              item.size,
+                              item.color,
+                              item.quantity - 1,
+                            )
+                          }
+                        >
+                          <RemoveIcon fontSize="small" />
+                        </IconButton>
+                        <Typography
+                          variant="body2"
+                          sx={{ minWidth: 20, textAlign: "center" }}
+                        >
+                          {item.quantity}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          disabled={item.quantity >= item.maxStock}
+                          onClick={() =>
+                            updateQuantity(
+                              item.productId,
+                              item.size,
+                              item.color,
+                              item.quantity + 1,
+                            )
+                          }
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                      {item.quantity >= item.maxStock && (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontSize: "0.75rem", mt: 0.5 }}
+                        >
+                          Stock maximum atteint ({item.maxStock} disponible
+                          {item.maxStock > 1 ? "s" : ""})
+                        </Typography>
+                      )}
+                    </Box>
                     <Typography variant="body1" sx={{ fontWeight: 700 }}>
                       {(item.price * item.quantity).toFixed(2)} €
                     </Typography>

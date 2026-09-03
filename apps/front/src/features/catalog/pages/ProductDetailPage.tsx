@@ -6,6 +6,7 @@ import {
   Chip,
   Stack,
   Button,
+  IconButton,
   Accordion,
   AccordionSummary,
   AccordionDetails,
@@ -14,6 +15,8 @@ import {
   Link,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 import { mockProducts } from "../data/mockProducts.js";
 import { useStore } from "../../stores/context/StoreContext.js";
 import { mockStores } from "../../stores/data/mockStores.js";
@@ -29,14 +32,13 @@ export const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedStore } = useStore();
-  const { addItem } = useCart();
+  const { items, addItem, updateQuantity, removeItem } = useCart();
   const isDesktop = useIsDesktop();
   const product = mockProducts.find((p) => p.id === id);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [justAdded, setJustAdded] = useState(false);
 
   if (!product) {
     return (
@@ -66,6 +68,58 @@ export const ProductDetailPage = () => {
             (matchingVariant.stockByStore[s.id] ?? 0) > 0,
         )
       : null;
+
+  const isOutOfStock =
+    stockInCurrentStore !== null && stockInCurrentStore === 0;
+  const canAddToCart = matchingVariant && selectedStore && !isOutOfStock;
+
+  const cartItem = matchingVariant
+    ? items.find(
+        (i) =>
+          i.productId === product.id &&
+          i.size === matchingVariant.size &&
+          i.color === matchingVariant.color,
+      )
+    : undefined;
+  const quantityInCart = cartItem?.quantity ?? 0;
+
+  const handleAdd = () => {
+    if (!canAddToCart || !matchingVariant) return;
+    addItem({
+      productId: product.id,
+      productName: product.name,
+      imageUrl: product.imageUrl,
+      price: product.price,
+      size: matchingVariant.size,
+      color: matchingVariant.color,
+      quantity: 1,
+      maxStock: stockInCurrentStore ?? 0,
+    });
+  };
+
+  const handleIncrease = () => {
+    if (!matchingVariant) return;
+    updateQuantity(
+      product.id,
+      matchingVariant.size,
+      matchingVariant.color,
+      quantityInCart + 1,
+    );
+  };
+
+  const handleDecrease = () => {
+    if (!matchingVariant) return;
+    if (quantityInCart <= 1) {
+      removeItem(product.id, matchingVariant.size, matchingVariant.color);
+    } else {
+      updateQuantity(
+        product.id,
+        matchingVariant.size,
+        matchingVariant.color,
+        quantityInCart - 1,
+      );
+    }
+  };
 
   return (
     <Box sx={{ px: 2, pt: 2 }}>
@@ -204,28 +258,47 @@ export const ProductDetailPage = () => {
             </Box>
           )}
 
-          <Button
-            variant="contained"
-            fullWidth
-            disabled={!matchingVariant}
-            sx={{ mb: 3 }}
-            onClick={() => {
-              if (!matchingVariant) return;
-              addItem({
-                productId: product.id,
-                productName: product.name,
-                imageUrl: product.imageUrl,
-                price: product.price,
-                size: matchingVariant.size,
-                color: matchingVariant.color,
-                quantity: 1,
-              });
-              setJustAdded(true);
-              setTimeout(() => setJustAdded(false), 2000);
-            }}
-          >
-            {justAdded ? "Ajouté ✓" : "Ajouter au panier"}
-          </Button>
+          {quantityInCart === 0 ? (
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={!canAddToCart}
+              sx={{ mb: 3 }}
+              onClick={handleAdd}
+            >
+              {isOutOfStock
+                ? "Indisponible dans cette boutique"
+                : "Ajouter au panier"}
+            </Button>
+          ) : (
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: "center",
+                justifyContent: "space-between",
+                border: "1px solid",
+                borderColor: "primary.main",
+                borderRadius: 1,
+                px: 2,
+                py: 0.5,
+                mb: 3,
+              }}
+            >
+              <IconButton onClick={handleDecrease} color="primary">
+                <RemoveIcon />
+              </IconButton>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {quantityInCart}
+              </Typography>
+              <IconButton
+                onClick={handleIncrease}
+                color="primary"
+                disabled={quantityInCart >= (stockInCurrentStore ?? 0)}
+              >
+                <AddIcon />
+              </IconButton>
+            </Stack>
+          )}
 
           <Accordion elevation={0} disableGutters>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
