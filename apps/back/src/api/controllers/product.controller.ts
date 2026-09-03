@@ -2,8 +2,11 @@ import { Request, Response } from "express";
 import {
   getAllProducts,
   getProductById,
+  createProduct,
 } from "../config/dependency-injection.js";
+import { validateCreateProductDTO } from "../dto/product.dto.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
+import { AppError } from "../middlewares/error-handler.middleware.js";
 
 const parsePrice = (value: unknown): number | undefined => {
   if (typeof value !== "string") return undefined;
@@ -48,5 +51,17 @@ export const productController = {
     const { id } = req.params;
     const product = await getProductById(id as string);
     res.status(200).json(product);
+  }),
+
+  create: asyncHandler(async (req: Request, res: Response) => {
+    const validation = validateCreateProductDTO(req.body);
+
+    if (!validation.isValid) {
+      throw new AppError(validation.errors.join(", "), 400);
+    }
+
+    const product = await createProduct(req.body);
+
+    res.status(201).json(product);
   }),
 };

@@ -5,6 +5,7 @@ import {
   ProductVariant,
 } from "../../domain/entities/product.entity.js";
 import { ProductFilters } from "../../domain/entities/product-filters.entity.js";
+import { CreateProductInput } from "../../domain/entities/create-product-input.entity.js";
 
 const PRODUCT_INCLUDE = {
   images: { orderBy: { position: "asc" as const } },
@@ -59,6 +60,25 @@ const toDomainProduct = (
   };
 };
 
+const getOrCreateAttributeValueId = async (
+  attributeName: string,
+  value: string,
+): Promise<string> => {
+  const attribute = await prisma.attribute.upsert({
+    where: { name: attributeName },
+    update: {},
+    create: { name: attributeName },
+  });
+
+  const attributeValue = await prisma.attributeValue.upsert({
+    where: { attributeId_value: { attributeId: attribute.id, value } },
+    update: {},
+    create: { attributeId: attribute.id, value },
+  });
+
+  return attributeValue.id;
+};
+
 export const productPrismaRepository: IProductRepository = {
   findAll: async (filters: ProductFilters) => {
     const page = filters.page && filters.page > 0 ? filters.page : 1;
@@ -107,5 +127,67 @@ export const productPrismaRepository: IProductRepository = {
     });
 
     return product ? toDomainProduct(product) : null;
+  },
+
+  create: async (data: CreateProductInput) => {
+    const product = await prisma.product.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        collection: data.collection,
+        discipline: data.discipline,
+        specs: data.specs,
+        shippingInfo: data.shippingInfo,
+        isNew: data.isNew,
+        isPopular: data.isPopular,
+        images: {
+          create: data.images.map((img, index) => ({
+            url: img.url,
+            altText: img.altText ?? data.name,
+            position: index,
+          })),
+        },
+      },
+    });
+
+    for (const variant of data.variants) {
+      const attributeValueIds = await Promise.all(
+        variant.attributes.map((attr) =>
+          getOrCreateAttributeValueId(attr.attributeName, attr.value),
+        ),
+      );
+
+      const createdVariant = await prisma.productVariant.create({
+        data: {
+          productId: product.id,
+          attributeValues: {
+            create: attributeValueIds.map((attributeValueId) => ({
+              attributeValueId,
+            })),
+          },
+        },
+      });
+
+      const stockEntries = Object.entries(variant.stockByStore).filter(
+        ([, qty]) => qty > 0,
+      );
+      if (stockEntries.length > 0) {
+        await prisma.stock.createMany({
+          data: stockEntries.map(([storeId, quantity]) => ({
+            productVariantId: createdVariant.id,
+            storeId,
+            quantity,
+          })),
+        });
+      }
+    }
+
+    const fullProduct = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: PRODUCT_INCLUDE,
+    });
+
+    return toDomainProduct(fullProduct!);
   },
 };

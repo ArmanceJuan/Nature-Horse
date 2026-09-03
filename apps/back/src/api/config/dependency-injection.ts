@@ -1,3 +1,4 @@
+import { createProductUsecase } from "../../application/usecases/create-product.usecase.js";
 import { enableOtpUsecase } from "../../application/usecases/enable-otp.usecase.js";
 import { generateOtpSecretUsecase } from "../../application/usecases/generate-otp-secret.usecase.js";
 import { getAllProductsUsecase } from "../../application/usecases/get-all-products.usecase.js";
@@ -32,3 +33,4 @@ export const getAllProducts = getAllProductsUsecase(productPrismaRepository);
 export const getProductById = getProductByIdUsecase(productPrismaRepository);
 export const getAllStores = getAllStoresUsecase(storePrismaRepository);
 export const getStoreById = getStoreByIdUsecase(storePrismaRepository);
+export const createProduct = createProductUsecase(productPrismaRepository);

@@ -39,3 +39,13 @@ describe("GET /api/products/:id", () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe("POST /api/products", () => {
+  it("should return 401 when not authenticated", async () => {
+    const response = await request(app)
+      .post("/api/products")
+      .send({ name: "Test" });
+
+    expect(response.status).toBe(401);
+  });
+});

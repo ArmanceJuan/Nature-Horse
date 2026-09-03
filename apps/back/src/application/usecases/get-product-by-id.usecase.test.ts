@@ -24,6 +24,7 @@ describe("getProductByIdUsecase", () => {
     const fakeRepository: IProductRepository = {
       findAll: async () => [],
       findById: async () => fakeProduct,
+      create: async () => fakeProduct,
     };
 
     const getProductById = getProductByIdUsecase(fakeRepository);
@@ -36,6 +37,7 @@ describe("getProductByIdUsecase", () => {
     const fakeRepository: IProductRepository = {
       findAll: async () => [],
       findById: async () => null,
+      create: async () => fakeProduct,
     };
 
     const getProductById = getProductByIdUsecase(fakeRepository);
