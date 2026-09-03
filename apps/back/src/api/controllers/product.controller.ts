@@ -3,8 +3,13 @@ import {
   getAllProducts,
   getProductById,
   createProduct,
+  updateProduct,
+  deleteProduct,
 } from "../config/dependency-injection.js";
-import { validateCreateProductDTO } from "../dto/product.dto.js";
+import {
+  validateCreateProductDTO,
+  validateUpdateProductDTO,
+} from "../dto/product.dto.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
 import { AppError } from "../middlewares/error-handler.middleware.js";
 
@@ -63,5 +68,24 @@ export const productController = {
     const product = await createProduct(req.body);
 
     res.status(201).json(product);
+  }),
+
+  update: asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const validation = validateUpdateProductDTO(req.body);
+
+    if (!validation.isValid) {
+      throw new AppError(validation.errors.join(", "), 400);
+    }
+
+    const product = await updateProduct(id as string, req.body);
+
+    res.status(200).json(product);
+  }),
+
+  delete: asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    await deleteProduct(id as string);
+    res.status(204).send();
   }),
 };

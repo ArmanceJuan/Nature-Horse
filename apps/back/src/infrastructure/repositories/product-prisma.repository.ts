@@ -6,6 +6,7 @@ import {
 } from "../../domain/entities/product.entity.js";
 import { ProductFilters } from "../../domain/entities/product-filters.entity.js";
 import { CreateProductInput } from "../../domain/entities/create-product-input.entity.js";
+import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
 
 const PRODUCT_INCLUDE = {
   images: { orderBy: { position: "asc" as const } },
@@ -189,5 +190,32 @@ export const productPrismaRepository: IProductRepository = {
     });
 
     return toDomainProduct(fullProduct!);
+  },
+  update: async (id: string, data: UpdateProductInput) => {
+    await prisma.product.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        collection: data.collection,
+        discipline: data.discipline,
+        specs: data.specs,
+        shippingInfo: data.shippingInfo,
+        isNew: data.isNew,
+        isPopular: data.isPopular,
+      },
+    });
+
+    const updated = await prisma.product.findUnique({
+      where: { id },
+      include: PRODUCT_INCLUDE,
+    });
+
+    return toDomainProduct(updated!);
+  },
+
+  delete: async (id: string) => {
+    await prisma.product.delete({ where: { id } });
   },
 };

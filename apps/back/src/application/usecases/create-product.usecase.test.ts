@@ -1,6 +1,7 @@
 import { getAllProductsUsecase } from "./get-all-products.usecase.js";
 import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
 import { Product } from "../../domain/entities/product.entity.js";
+import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
 
 describe("getAllProductsUsecase", () => {
   const fakeProducts: Product[] = [
@@ -27,6 +28,15 @@ describe("getAllProductsUsecase", () => {
       findAll: async () => fakeProducts,
       findById: async () => null,
       create: async () => fakeProducts[0],
+      update: function (
+        id: string,
+        data: UpdateProductInput,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      delete: function (id: string): Promise<void> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const getAllProducts = getAllProductsUsecase(fakeRepository);
@@ -45,6 +55,15 @@ describe("getAllProductsUsecase", () => {
       },
       findById: async () => null,
       create: async () => fakeProducts[0],
+      update: function (
+        id: string,
+        data: UpdateProductInput,
+      ): Promise<Product> {
+        throw new Error("Function not implemented.");
+      },
+      delete: function (id: string): Promise<void> {
+        throw new Error("Function not implemented.");
+      },
     };
 
     const getAllProducts = getAllProductsUsecase(fakeRepository);

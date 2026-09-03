@@ -8,5 +8,12 @@ const router = Router();
 router.get("/", productController.getAll);
 router.get("/:id", productController.getById);
 router.post("/", requireAuth, requireRole("ADMIN"), productController.create);
+router.put("/:id", requireAuth, requireRole("ADMIN"), productController.update);
+router.delete(
+  "/:id",
+  requireAuth,
+  requireRole("ADMIN"),
+  productController.delete,
+);
 
 export default router;
