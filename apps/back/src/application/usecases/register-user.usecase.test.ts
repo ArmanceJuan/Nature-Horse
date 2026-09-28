@@ -1,71 +1,90 @@
-import { registerUserUsecase } from "./register-user.usecase.js";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import { RegisterUserUseCase } from "./register-user.usecase.js";
+import type { User } from "../../domain/entities/user.entity.js";
+import {
+  ConflictError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import { Email } from "../../domain/value-objects/email.js";
+import { buildUser } from "../../tests/builders/user.builder.js";
+import { FakePasswordHasher } from "../../tests/fakes/fake-password-hasher.js";
+import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
-describe("registerUserUsecase", () => {
-  const existingUser: User = {
-    id: "1",
-    email: "existing@example.com",
-    password: "hashedpassword",
-    firstName: "Existing",
-    lastName: "User",
-    phone: null,
-    role: "CLIENT",
-    otp_enable: false,
-    otp_secret: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+const build = (users: User[] = []) => {
+  const repository = new InMemoryUserRepository(users);
+
+  return {
+    repository,
+    useCase: new RegisterUserUseCase(repository, new FakePasswordHasher()),
   };
+};
 
-  const createFakeRepository = (userToFind: User | null): IUserRepository => ({
-    findAll: async () => [],
-    findById: async () => null,
-    findByEmail: async () => userToFind,
-    create: async (data) => ({
-      id: "new-id",
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-    update: async (id, data) => ({ ...existingUser, ...data }),
+const input = {
+  email: "  Marie@Example.com ",
+  password: "Password1!",
+  firstName: " Marie ",
+  lastName: "Martin",
+};
+
+describe("RegisterUserUseCase", () => {
+  it("creates a client account with a normalized email and trimmed names", async () => {
+    const { useCase } = build();
+
+    const user = await useCase.execute(input);
+
+    expect(user.email).toBe("marie@example.com");
+    expect(user.firstName).toBe("Marie");
+    expect(user.role).toBe("CLIENT");
+    expect(user.otpEnabled).toBe(false);
   });
 
-  it("should create a new user when email does not exist", async () => {
-    const fakeRepository = createFakeRepository(null);
-    const registerUser = registerUserUsecase(fakeRepository);
+  it("never stores the password in clear", async () => {
+    const { useCase } = build();
 
-    const result = await registerUser({
-      email: "new@example.com",
-      password: "Passw0rd!",
-      firstName: "Jean",
-      lastName: "Dupont",
+    const user = await useCase.execute(input);
+
+    expect(user.password).not.toBe("Password1!");
+    expect(user.password).toBe("hashed:Password1!");
+  });
+
+  it("stores the account so it can be found again", async () => {
+    const { repository, useCase } = build();
+
+    await useCase.execute(input);
+
+    expect(
+      await repository.findByEmail(Email.of("marie@example.com")),
+    ).not.toBeNull();
+  });
+
+  it("keeps the phone number when there is one and none otherwise", async () => {
+    const { useCase } = build();
+
+    const withPhone = await useCase.execute({
+      ...input,
+      phone: " 0612345678 ",
+    });
+    const withoutPhone = await useCase.execute({
+      ...input,
+      email: "other@example.com",
     });
 
-    expect(result.email).toBe("new@example.com");
-    expect(result).not.toHaveProperty("password");
+    expect(withPhone.phone).toBe("0612345678");
+    expect(withoutPhone.phone).toBeNull();
   });
 
-  it("should throw an AppError with 409 when email already exists", async () => {
-    const fakeRepository = createFakeRepository(existingUser);
-    const registerUser = registerUserUsecase(fakeRepository);
+  it("refuses an email that already has an account, whatever its case", async () => {
+    const { useCase } = build([buildUser({ email: "marie@example.com" })]);
 
     await expect(
-      registerUser({
-        email: "existing@example.com",
-        password: "Passw0rd!",
-        firstName: "Jean",
-        lastName: "Dupont",
-      }),
-    ).rejects.toThrow(AppError);
+      useCase.execute({ ...input, email: "MARIE@example.com" }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("refuses an email that is not valid", async () => {
+    const { useCase } = build();
 
     await expect(
-      registerUser({
-        email: "existing@example.com",
-        password: "Passw0rd!",
-        firstName: "Jean",
-        lastName: "Dupont",
-      }),
-    ).rejects.toMatchObject({ statusCode: 409 });
+      useCase.execute({ ...input, email: "not-an-email" }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

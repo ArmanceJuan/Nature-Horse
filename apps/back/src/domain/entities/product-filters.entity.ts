@@ -1,4 +1,7 @@
-export interface ProductFilters {
+import type { ProductStatus } from "./product.entity.js";
+
+export interface ProductCriteria {
+  status?: ProductStatus;
   collection?: string;
   discipline?: string;
   categorySlug?: string;
@@ -6,6 +9,9 @@ export interface ProductFilters {
   search?: string;
   minPrice?: number;
   maxPrice?: number;
+}
+
+export interface ProductFilters extends ProductCriteria {
   sizes?: string[];
   page?: number;
   limit?: number;

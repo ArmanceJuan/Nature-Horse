@@ -1,89 +1,65 @@
-import { updateProductUsecase } from "./update-product.usecase.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
+import { UpdateProductUseCase } from "./update-product.usecase.js";
 import {
-  Product,
-  ProductStatus,
-} from "../../domain/entities/product.entity.js";
+  NotFoundError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import { buildCategory } from "../../tests/builders/category.builder.js";
+import { buildProduct } from "../../tests/builders/product.builder.js";
+import { InMemoryCategoryRepository } from "../../tests/fakes/in-memory-category.repository.js";
+import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
 
-describe("updateProductUsecase", () => {
-  const fakeProduct: Product = {
-    id: "1",
-    name: "Test",
-    description: "desc",
-    price: 50,
-    collection: "textile-performance",
-    discipline: "loisir",
-    specs: [],
-    shippingInfo: "info",
-    isNew: false,
-    isPopular: false,
-    images: [],
-    variants: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    status: "ACTIVE",
+describe("UpdateProductUseCase", () => {
+  const build = () => {
+    const products = new InMemoryProductRepository([
+      buildProduct({ id: "p1", slug: "selle", price: 100 }),
+    ]);
+    const categories = new InMemoryCategoryRepository([
+      buildCategory({ id: "category-1" }),
+    ]);
+
+    return {
+      products,
+      useCase: new UpdateProductUseCase(products, categories),
+    };
   };
 
-  it("should update the product when it exists", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => fakeProduct,
-      create: async () => fakeProduct,
-      update: async (id, data) => ({ ...fakeProduct, ...data }),
-      delete: async () => {},
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-      updateStatus: function (
-        id: string,
-        status: ProductStatus,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      adjustStock: function (
-        variantId: string,
-        storeId: string,
-        quantity: number,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  it("updates the product designated by its id", async () => {
+    const { useCase } = build();
 
-    const updateProduct = updateProductUsecase(fakeRepository);
-    const result = await updateProduct("1", { price: 75 });
+    const result = await useCase.execute("p1", { price: 75 });
 
     expect(result.price).toBe(75);
   });
 
-  it("should throw 404 when product does not exist", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-      create: async () => fakeProduct,
-      update: async (id, data) => ({ ...fakeProduct, ...data }),
-      delete: async () => {},
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-      updateStatus: function (
-        id: string,
-        status: ProductStatus,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      adjustStock: function (
-        variantId: string,
-        storeId: string,
-        quantity: number,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  it("updates the product designated by its slug", async () => {
+    const { products, useCase } = build();
 
-    const updateProduct = updateProductUsecase(fakeRepository);
+    await useCase.execute("selle", { price: 60 });
 
-    await expect(updateProduct("unknown", { price: 75 })).rejects.toMatchObject(
-      { statusCode: 404 },
-    );
+    expect((await products.findById("p1"))?.price).toBe(60);
+  });
+
+  it("keeps the fields that are not part of the update", async () => {
+    const { useCase } = build();
+
+    const result = await useCase.execute("p1", { price: 75 });
+
+    expect(result.name).toBe("Test Product");
+  });
+
+  it("throws a NotFoundError for an unknown product", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("unknown", { price: 75 }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects an unknown category", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("p1", { categoryId: "unknown" }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });

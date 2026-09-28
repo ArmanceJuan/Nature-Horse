@@ -1,16 +1,21 @@
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
+import type { Product } from "../../domain/entities/product.entity.js";
+import { NotFoundError } from "../../domain/errors/http-errors.js";
+import type { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
 
-export const getProductByIdUsecase = (
-  productRepository: IProductRepository,
-) => {
-  return async (id: string) => {
-    const product = await productRepository.findById(id);
+export class GetProductByIdUseCase {
+  private readonly productRepository: IProductRepository;
 
-    if (!product) {
-      throw new AppError("Product not found", 404);
+  constructor(productRepository: IProductRepository) {
+    this.productRepository = productRepository;
+  }
+
+  async execute(idOrSlug: string): Promise<Product> {
+    const product = await this.productRepository.findById(idOrSlug);
+
+    if (!product || !product.isActive()) {
+      throw new NotFoundError("Product not found");
     }
 
     return product;
-  };
-};
+  }
+}

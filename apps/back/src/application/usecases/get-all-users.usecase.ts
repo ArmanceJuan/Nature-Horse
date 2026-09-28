@@ -1,9 +1,14 @@
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { sanitizeUser } from "../utils/sanitize-user.util.js";
+import type { User } from "../../domain/entities/user.entity.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
 
-export const getAllUsersUsecase = (userRepository: IUserRepository) => {
-  return async () => {
-    const users = await userRepository.findAll();
-    return users.map(sanitizeUser);
-  };
-};
+export class GetAllUsersUseCase {
+  private readonly userRepository: IUserRepository;
+
+  constructor(userRepository: IUserRepository) {
+    this.userRepository = userRepository;
+  }
+
+  execute(): Promise<User[]> {
+    return this.userRepository.findAll();
+  }
+}

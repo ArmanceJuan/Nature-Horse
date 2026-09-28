@@ -1,80 +1,107 @@
-import { getAllProductsUsecase } from "./get-all-products.usecase.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
-import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
+import { CreateProductUseCase } from "./create-product.usecase.js";
+import { ValidationError } from "../../domain/errors/http-errors.js";
+import { buildCategory } from "../../tests/builders/category.builder.js";
+import { buildCreateProductInput } from "../../tests/builders/product.builder.js";
+import { buildStore } from "../../tests/builders/store.builder.js";
+import { InMemoryCategoryRepository } from "../../tests/fakes/in-memory-category.repository.js";
+import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
+import { InMemoryStoreRepository } from "../../tests/fakes/in-memory-store.repository.js";
 
-describe("getAllProductsUsecase", () => {
-  const fakeProducts: Product[] = [
-    {
-      id: "1",
-      name: "Test Product",
-      description: "desc",
-      price: 100,
-      collection: "haute-sellerie",
-      discipline: "dressage",
-      specs: [],
-      shippingInfo: "info",
-      isNew: false,
-      isPopular: false,
-      images: [],
-      variants: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+const build = () => {
+  const products = new InMemoryProductRepository();
+  const useCase = new CreateProductUseCase(
+    products,
+    new InMemoryCategoryRepository([buildCategory({ id: "category-1" })]),
+    new InMemoryStoreRepository([
+      buildStore({ id: "store-1" }),
+      buildStore({ id: "store-2" }),
+    ]),
+  );
 
-  it("should return products from the repository", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => fakeProducts,
-      findById: async () => null,
-      create: async () => fakeProducts[0],
-      update: function (
-        id: string,
-        data: UpdateProductInput,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      delete: function (id: string): Promise<void> {
-        throw new Error("Function not implemented.");
-      },
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  return { products, useCase };
+};
 
-    const getAllProducts = getAllProductsUsecase(fakeRepository);
-    const result = await getAllProducts({});
+describe("CreateProductUseCase", () => {
+  it("creates the product and stores it", async () => {
+    const { products, useCase } = build();
 
-    expect(result).toEqual(fakeProducts);
+    const product = await useCase.execute(buildCreateProductInput());
+
+    expect(product.slug).toBe("selle-monolith");
+    expect(await products.findById("selle-monolith")).not.toBeNull();
   });
 
-  it("should pass filters to the repository", async () => {
-    let receivedFilters: unknown = null;
+  it("rejects an unknown category", async () => {
+    const { useCase } = build();
 
-    const fakeRepository: IProductRepository = {
-      findAll: async (filters) => {
-        receivedFilters = filters;
-        return fakeProducts;
-      },
-      findById: async () => null,
-      create: async () => fakeProducts[0],
-      update: function (
-        id: string,
-        data: UpdateProductInput,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      delete: function (id: string): Promise<void> {
-        throw new Error("Function not implemented.");
-      },
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
+    await expect(
+      useCase.execute(buildCreateProductInput({ categoryId: "unknown" })),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects stock declared for an unknown store", async () => {
+    const { useCase } = build();
+    const input = buildCreateProductInput({
+      variants: [
+        {
+          attributes: [{ attributeName: "Taille", value: "M" }],
+          stockByStore: { "store-1": 1, ghost: 4 },
+        },
+      ],
+    });
+
+    await expect(useCase.execute(input)).rejects.toMatchObject({
+      statusCode: 400,
+    });
+  });
+
+  it("rejects a product without any stock in any store", async () => {
+    const { useCase } = build();
+    const input = buildCreateProductInput({
+      variants: [
+        {
+          attributes: [{ attributeName: "Taille", value: "M" }],
+          stockByStore: { "store-1": 0, "store-2": 0 },
+        },
+      ],
+    });
+
+    await expect(useCase.execute(input)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+  });
+
+  it("rejects two variants that share the same attributes", async () => {
+    const { useCase } = build();
+    const variant = {
+      attributes: [
+        { attributeName: "Taille", value: "M" },
+        { attributeName: "Couleur", value: "Noir" },
+      ],
+      stockByStore: { "store-1": 1 },
+    };
+    const duplicated = {
+      attributes: [
+        { attributeName: "Couleur", value: "noir" },
+        { attributeName: "Taille", value: "m" },
+      ],
+      stockByStore: { "store-2": 3 },
     };
 
-    const getAllProducts = getAllProductsUsecase(fakeRepository);
-    await getAllProducts({ collection: "haute-sellerie" });
+    await expect(
+      useCase.execute(
+        buildCreateProductInput({ variants: [variant, duplicated] }),
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
 
-    expect(receivedFilters).toEqual({ collection: "haute-sellerie" });
+  it("does not store anything when the input is refused", async () => {
+    const { products, useCase } = build();
+
+    await expect(
+      useCase.execute(buildCreateProductInput({ categoryId: "unknown" })),
+    ).rejects.toBeDefined();
+
+    expect(await products.findAll({})).toEqual([]);
   });
 });

@@ -1,69 +1,70 @@
-import { Request, Response } from "express";
-import {
-  registerUser,
-  loginUser,
-  getCurrentUser,
-} from "../config/dependency-injection.js";
-import { AppError } from "../middlewares/error-handler.middleware.js";
-import { validateRegisterDTO, validateLoginDTO } from "../dto/user.dto.js";
-import { toPublicUser } from "../dto/public-user.dto.js";
+import type { Request, Response } from "express";
+import type { GetCurrentUserUseCase } from "../../application/usecases/get-current-user.usecase.js";
+import type {
+  LoginInput,
+  LoginUserUseCase,
+} from "../../application/usecases/login-user.usecase.js";
+import type {
+  RegisterInput,
+  RegisterUserUseCase,
+} from "../../application/usecases/register-user.usecase.js";
+import { UnauthorizedError } from "../../domain/errors/http-errors.js";
+import type { SessionCookie } from "../http/session-cookie.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
+import type { IValidator } from "../validation/validator.js";
 
-const isProduction = process.env.NODE_ENV === "production";
+export interface AuthControllerDependencies {
+  registerUser: RegisterUserUseCase;
+  loginUser: LoginUserUseCase;
+  getCurrentUser: GetCurrentUserUseCase;
+  registerValidator: IValidator<RegisterInput>;
+  loginValidator: IValidator<LoginInput>;
+  sessionCookie: SessionCookie;
+}
 
-export const authController = {
-  register: asyncHandler(async (req: Request, res: Response) => {
-    const validation = validateRegisterDTO(req.body);
+export class AuthController {
+  private readonly dependencies: AuthControllerDependencies;
 
-    if (!validation.isValid) {
-      throw new AppError(validation.errors.join(", "), 400);
-    }
+  constructor(dependencies: AuthControllerDependencies) {
+    this.dependencies = dependencies;
+  }
 
-    const newUser = await registerUser(req.body);
+  register = asyncHandler(async (req: Request, res: Response) => {
+    const input = this.dependencies.registerValidator.parse(req.body);
+    const user = await this.dependencies.registerUser.execute(input);
 
-    res.status(201).json(toPublicUser(newUser));
-  }),
+    res.status(201).json(user);
+  });
 
-  login: asyncHandler(async (req: Request, res: Response) => {
-    const validation = validateLoginDTO(req.body);
-
-    if (!validation.isValid) {
-      throw new AppError(validation.errors.join(", "), 400);
-    }
-
-    const result = await loginUser(req.body);
+  login = asyncHandler(async (req: Request, res: Response) => {
+    const input = this.dependencies.loginValidator.parse(req.body);
+    const result = await this.dependencies.loginUser.execute(input);
 
     if (result.requiresOtp) {
-      return res.status(200).json({ requiresOtp: true });
+      res.status(200).json({ requiresOtp: true });
+      return;
     }
 
-    res.cookie("access_token", result.token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    this.dependencies.sessionCookie.set(res, result.token);
+    res.status(200).json(result.user);
+  });
 
-    res.status(200).json(toPublicUser(result.user));
-  }),
-
-  me: asyncHandler(async (req: Request, res: Response) => {
+  me = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) {
-      throw new AppError("Authentication required", 401);
+      throw new UnauthorizedError();
     }
 
-    const user = await getCurrentUser(req.user.userId);
+    const user = await this.dependencies.getCurrentUser.execute(
+      req.user.userId,
+    );
 
     res.set("Cache-Control", "no-store");
-    res.status(200).json(toPublicUser(user));
-  }),
+    res.status(200).json(user);
+  });
 
-  logout: asyncHandler(async (req: Request, res: Response) => {
-    res.clearCookie("access_token", {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "strict",
-    });
+  logout = asyncHandler(async (_req: Request, res: Response) => {
+    this.dependencies.sessionCookie.clear(res);
+
     res.status(200).json({ message: "Logged out successfully" });
-  }),
-};
+  });
+}

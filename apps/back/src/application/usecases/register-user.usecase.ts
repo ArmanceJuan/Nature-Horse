@@ -1,8 +1,8 @@
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
-import { hashPassword } from "../../infrastructure/security/password.util.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { sanitizeUser } from "../utils/sanitize-user.util.js";
+import type { User } from "../../domain/entities/user.entity.js";
+import { ConflictError } from "../../domain/errors/http-errors.js";
+import type { IPasswordHasher } from "../../domain/interfaces/password-hasher.interface.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
+import { Email } from "../../domain/value-objects/email.js";
 
 export interface RegisterInput {
   email: string;
@@ -12,27 +12,34 @@ export interface RegisterInput {
   phone?: string;
 }
 
-export const registerUserUsecase = (userRepository: IUserRepository) => {
-  return async (input: RegisterInput): Promise<Omit<User, "password">> => {
-    const existingUser = await userRepository.findByEmail(input.email);
+export class RegisterUserUseCase {
+  private readonly userRepository: IUserRepository;
+  private readonly passwordHasher: IPasswordHasher;
 
-    if (existingUser) {
-      throw new AppError("An account with this email already exists", 409);
+  constructor(
+    userRepository: IUserRepository,
+    passwordHasher: IPasswordHasher,
+  ) {
+    this.userRepository = userRepository;
+    this.passwordHasher = passwordHasher;
+  }
+
+  async execute(input: RegisterInput): Promise<User> {
+    const email = Email.of(input.email);
+
+    if (await this.userRepository.findByEmail(email)) {
+      throw new ConflictError("An account with this email already exists");
     }
 
-    const hashedPassword = await hashPassword(input.password);
+    const password = await this.passwordHasher.hash(input.password);
 
-    const newUser = await userRepository.create({
-      email: input.email,
-      password: hashedPassword,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      phone: input.phone ?? null,
+    return this.userRepository.create({
+      email: email.value,
+      password,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      phone: input.phone?.trim() || null,
       role: "CLIENT",
-      otp_enable: false,
-      otp_secret: null,
     });
-
-    return sanitizeUser(newUser);
-  };
-};
+  }
+}

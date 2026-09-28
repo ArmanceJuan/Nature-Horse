@@ -4,6 +4,7 @@ export interface UpdateProductInput {
   price?: number;
   collection?: string;
   discipline?: string;
+  categoryId?: string;
   specs?: string[];
   shippingInfo?: string;
   isNew?: boolean;

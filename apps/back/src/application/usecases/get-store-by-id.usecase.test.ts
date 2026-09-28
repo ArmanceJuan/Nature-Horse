@@ -1,42 +1,24 @@
-import { getStoreByIdUsecase } from "./get-store-by-id.usecase.js";
-import { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
-import { Store } from "../../domain/entities/store.entity.js";
+import { GetStoreByIdUseCase } from "./get-store-by-id.usecase.js";
+import { NotFoundError } from "../../domain/errors/http-errors.js";
+import { buildStore } from "../../tests/builders/store.builder.js";
+import { InMemoryStoreRepository } from "../../tests/fakes/in-memory-store.repository.js";
 
-describe("getStoreByIdUsecase", () => {
-  const fakeStore: Store = {
-    id: "1",
-    name: "Test Store",
-    address: "1 rue Test",
-    postalCode: "75000",
-    city: "Paris",
-    phone: null,
-    email: null,
-    openingHours: ["Lun-Ven: 9h-18h"],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+describe("GetStoreByIdUseCase", () => {
+  const store = buildStore({ id: "s1" });
+  const useCase = new GetStoreByIdUseCase(new InMemoryStoreRepository([store]));
 
-  it("should return the store when found", async () => {
-    const fakeRepository: IStoreRepository = {
-      findAll: async () => [],
-      findById: async () => fakeStore,
-    };
-
-    const getStoreById = getStoreByIdUsecase(fakeRepository);
-    const result = await getStoreById("1");
-
-    expect(result).toEqual(fakeStore);
+  it("returns the store when it exists", async () => {
+    expect(await useCase.execute("s1")).toEqual(store);
   });
 
-  it("should throw 404 when store does not exist", async () => {
-    const fakeRepository: IStoreRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-    };
+  it("throws a NotFoundError when the store does not exist", async () => {
+    await expect(useCase.execute("unknown")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
 
-    const getStoreById = getStoreByIdUsecase(fakeRepository);
-
-    await expect(getStoreById("unknown")).rejects.toMatchObject({
+  it("carries the 404 status of the error", async () => {
+    await expect(useCase.execute("unknown")).rejects.toMatchObject({
       statusCode: 404,
     });
   });

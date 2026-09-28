@@ -38,8 +38,8 @@ model User {
   lastName      String
   phone         String?
   role          Role           @default(CLIENT)
-  otp_enable    Boolean        @default(false)
-  otp_secret    String?
+  otpEnabled    Boolean        @default(false) @map("otp_enable")
+  otpSecret     String?        @map("otp_secret")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   a2fBackupCode A2FBackupCode?

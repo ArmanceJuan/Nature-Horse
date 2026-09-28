@@ -1,77 +1,95 @@
-import { generateSecret, generate } from "otplib";
-import { enableOtpUsecase } from "./enable-otp.usecase.js";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { IOtpBackupCodeRepository } from "../../domain/interfaces/otp-backup-code-repository.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
+import { EnableOtpUseCase } from "./enable-otp.usecase.js";
+import {
+  UnauthorizedError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import { buildUser } from "../../tests/builders/user.builder.js";
+import { FakeBackupCodeGenerator } from "../../tests/fakes/fake-backup-code.generator.js";
+import { FakePasswordHasher } from "../../tests/fakes/fake-password-hasher.js";
+import { FakeTotpService } from "../../tests/fakes/fake-totp.service.js";
+import { InMemoryTwoFactorRepository } from "../../tests/fakes/in-memory-two-factor.repository.js";
+import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
-describe("enableOtpUsecase", () => {
-  const existingUser: User = {
-    id: "1",
-    email: "test@example.com",
-    password: "hashed",
-    firstName: "Jean",
-    lastName: "Dupont",
-    phone: null,
-    role: "CLIENT",
-    otp_enable: false,
-    otp_secret: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+const build = () => {
+  const twoFactor = new InMemoryTwoFactorRepository();
+  const useCase = new EnableOtpUseCase(
+    new InMemoryUserRepository([buildUser({ id: "u1" })]),
+    twoFactor,
+    new FakeTotpService(),
+    new FakeBackupCodeGenerator(),
+    new FakePasswordHasher(),
+  );
 
-  const fakeUserRepository: IUserRepository = {
-    findAll: async () => [],
-    findById: async () => existingUser,
-    findByEmail: async () => null,
-    create: async (data) => ({
-      id: "1",
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-    update: async (id, data) => ({ ...existingUser, ...data }),
-  };
+  return { twoFactor, useCase };
+};
 
-  const fakeOtpBackupCodeRepository: IOtpBackupCodeRepository = {
-    upsert: async (userId, codesHash) => ({
-      id: "1",
-      userId,
-      codesHash,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-    findByUserId: async () => null,
-  };
+const validInput = {
+  userId: "u1",
+  secret: FakeTotpService.SECRET,
+  code: FakeTotpService.VALID_CODE,
+};
 
-  it("should enable OTP with a valid code and return backup codes", async () => {
-    const secret = generateSecret();
-    const validCode = await generate({ secret });
+describe("EnableOtpUseCase", () => {
+  it("stores the secret with hashed backup codes when the code is right", async () => {
+    const { twoFactor, useCase } = build();
 
-    const enableOtp = enableOtpUsecase(
-      fakeUserRepository,
-      fakeOtpBackupCodeRepository,
-    );
+    await useCase.execute(validInput);
 
-    const result = await enableOtp({
-      userId: "1",
-      secret,
-      code: validCode,
-    });
-
-    expect(result.message).toBe("2FA enabled successfully");
-    expect(result.backupCodes).toHaveLength(5);
+    expect(twoFactor.enabled).toEqual([
+      {
+        userId: "u1",
+        secret: FakeTotpService.SECRET,
+        backupCodeHashes: [
+          "hashed:CODE1",
+          "hashed:CODE2",
+          "hashed:CODE3",
+          "hashed:CODE4",
+          "hashed:CODE5",
+        ],
+      },
+    ]);
   });
 
-  it("should throw 400 with an invalid code", async () => {
-    const secret = generateSecret();
+  it("returns the backup codes in clear, once", async () => {
+    const { useCase } = build();
 
-    const enableOtp = enableOtpUsecase(
-      fakeUserRepository,
-      fakeOtpBackupCodeRepository,
-    );
+    const result = await useCase.execute(validInput);
+
+    expect(result.backupCodes).toEqual([
+      "CODE1",
+      "CODE2",
+      "CODE3",
+      "CODE4",
+      "CODE5",
+    ]);
+    expect(result.backupCodes).toHaveLength(EnableOtpUseCase.BACKUP_CODE_COUNT);
+  });
+
+  it("never stores a backup code in clear", async () => {
+    const { twoFactor, useCase } = build();
+
+    const result = await useCase.execute(validInput);
+
+    result.backupCodes.forEach((backupCode) => {
+      expect(twoFactor.enabled[0].backupCodeHashes).not.toContain(backupCode);
+    });
+  });
+
+  it("refuses a wrong code and stores nothing", async () => {
+    const { twoFactor, useCase } = build();
 
     await expect(
-      enableOtp({ userId: "1", secret, code: "000000" }),
-    ).rejects.toMatchObject({ statusCode: 400 });
+      useCase.execute({ ...validInput, code: "000000" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(twoFactor.enabled).toEqual([]);
+  });
+
+  it("refuses an unknown user and stores nothing", async () => {
+    const { twoFactor, useCase } = build();
+
+    await expect(
+      useCase.execute({ ...validInput, userId: "ghost" }),
+    ).rejects.toBeInstanceOf(UnauthorizedError);
+    expect(twoFactor.enabled).toEqual([]);
   });
 });

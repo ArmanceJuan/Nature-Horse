@@ -1,49 +1,86 @@
-import { adjustStockUsecase } from "./adjust-stock.usecase.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
+import { AdjustStockUseCase } from "./adjust-stock.usecase.js";
+import {
+  NotFoundError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import {
+  buildProduct,
+  buildVariant,
+} from "../../tests/builders/product.builder.js";
+import { buildStore } from "../../tests/builders/store.builder.js";
+import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
+import { InMemoryStoreRepository } from "../../tests/fakes/in-memory-store.repository.js";
 
-describe("adjustStockUsecase", () => {
-  const fakeProduct: Product = {
-    id: "1",
-    name: "Test",
-    description: "desc",
-    price: 50,
-    collection: "textile-performance",
-    discipline: "loisir",
-    status: "ACTIVE",
-    specs: [],
-    shippingInfo: "info",
-    isNew: false,
-    isPopular: false,
-    images: [],
-    variants: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+const build = () => {
+  const products = new InMemoryProductRepository([
+    buildProduct({
+      id: "p1",
+      variants: [buildVariant({ id: "v1", stockByStore: { "store-1": 1 } })],
+    }),
+  ]);
+  const useCase = new AdjustStockUseCase(
+    products,
+    new InMemoryStoreRepository([buildStore({ id: "store-1" })]),
+  );
 
-  const fakeRepository: IProductRepository = {
-    findAll: async () => [],
-    findById: async () => fakeProduct,
-    findByVariantId: async () => null,
-    create: async () => fakeProduct,
-    update: async () => fakeProduct,
-    delete: async () => {},
-    updateStatus: async () => fakeProduct,
-    adjustStock: async () => fakeProduct,
-  };
+  return { products, useCase };
+};
 
-  it("should adjust stock with a valid quantity", async () => {
-    const adjustStock = adjustStockUsecase(fakeRepository);
-    const result = await adjustStock("variant-1", "store-1", 10);
+describe("AdjustStockUseCase", () => {
+  it("sets the stock of a variant in a store", async () => {
+    const { products, useCase } = build();
 
-    expect(result).toEqual(fakeProduct);
+    const result = await useCase.execute("v1", {
+      storeId: "store-1",
+      quantity: 12,
+    });
+
+    expect(result.variants[0].stockInStore("store-1")).toBe(12);
+    expect(
+      (await products.findById("p1"))?.variants[0].stockInStore("store-1"),
+    ).toBe(12);
   });
 
-  it("should throw 400 for a negative quantity", async () => {
-    const adjustStock = adjustStockUsecase(fakeRepository);
+  it("accepts a stock of zero", async () => {
+    const { useCase } = build();
 
-    await expect(adjustStock("variant-1", "store-1", -5)).rejects.toMatchObject(
-      { statusCode: 400 },
-    );
+    const result = await useCase.execute("v1", {
+      storeId: "store-1",
+      quantity: 0,
+    });
+
+    expect(result.variants[0].stockInStore("store-1")).toBe(0);
+  });
+
+  it("rejects a negative quantity", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("v1", { storeId: "store-1", quantity: -1 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects a quantity that is not an integer", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("v1", { storeId: "store-1", quantity: 2.5 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("throws a NotFoundError for an unknown variant", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("ghost", { storeId: "store-1", quantity: 3 }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("throws a NotFoundError for an unknown store", async () => {
+    const { useCase } = build();
+
+    await expect(
+      useCase.execute("v1", { storeId: "ghost", quantity: 3 }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

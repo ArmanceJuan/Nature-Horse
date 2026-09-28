@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { storeController } from "../controllers/store.controller.js";
+import type { StoreController } from "../controllers/store.controller.js";
 
-const router = Router();
+export class StoreRoutes {
+  readonly router: Router;
 
-router.get("/", storeController.getAll);
-router.get("/:id", storeController.getById);
-
-export default router;
+  constructor(controller: StoreController) {
+    this.router = Router();
+    this.router.get("/", controller.getAll);
+    this.router.get("/:id", controller.getById);
+  }
+}

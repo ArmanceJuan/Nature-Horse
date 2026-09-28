@@ -7,7 +7,7 @@ export interface AuthUser {
   lastName: string;
   phone: string | null;
   role: UserRole;
-  otp_enable: boolean;
+  otpEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

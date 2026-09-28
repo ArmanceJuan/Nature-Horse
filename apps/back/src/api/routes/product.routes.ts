@@ -1,37 +1,26 @@
 import { Router } from "express";
-import { productController } from "../controllers/product.controller.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
-import { requireRole } from "../middlewares/role.middleware.js";
+import type { ProductController } from "../controllers/product.controller.js";
+import type { RouteGuards } from "../middlewares/route-guards.js";
 
-const router = Router();
+export class ProductRoutes {
+  readonly router: Router;
 
-router.get("/", productController.getAll);
-router.get("/:id", productController.getById);
-router.post("/", requireAuth, requireRole("ADMIN"), productController.create);
-router.put("/:id", requireAuth, requireRole("ADMIN"), productController.update);
-router.delete(
-  "/:id",
-  requireAuth,
-  requireRole("ADMIN"),
-  productController.delete,
-);
-router.post(
-  "/:id/archive",
-  requireAuth,
-  requireRole("ADMIN"),
-  productController.archive,
-);
-router.post(
-  "/:id/reactivate",
-  requireAuth,
-  requireRole("ADMIN"),
-  productController.reactivate,
-);
-router.patch(
-  "/variants/:variantId/stock",
-  requireAuth,
-  requireRole("ADMIN"),
-  productController.adjustStock,
-);
+  constructor(controller: ProductController, guards: RouteGuards) {
+    this.router = Router();
 
-export default router;
+    const adminOnly = [guards.requireAuth, guards.requireRole("ADMIN")];
+
+    this.router.get("/", controller.getAll);
+    this.router.get("/:id", controller.getById);
+    this.router.post("/", ...adminOnly, controller.create);
+    this.router.put("/:id", ...adminOnly, controller.update);
+    this.router.delete("/:id", ...adminOnly, controller.delete);
+    this.router.post("/:id/archive", ...adminOnly, controller.archive);
+    this.router.post("/:id/reactivate", ...adminOnly, controller.reactivate);
+    this.router.patch(
+      "/variants/:variantId/stock",
+      ...adminOnly,
+      controller.adjustStock,
+    );
+  }
+}

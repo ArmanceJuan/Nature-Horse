@@ -1,9 +1,12 @@
-import { verify } from "otplib";
-import bcrypt from "bcrypt";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { IOtpBackupCodeRepository } from "../../domain/interfaces/otp-backup-code-repository.interface.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { generateBackupCodes } from "../../infrastructure/security/backup-codes.util.js";
+import {
+  UnauthorizedError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import type { IBackupCodeGenerator } from "../../domain/interfaces/backup-code-generator.interface.js";
+import type { IPasswordHasher } from "../../domain/interfaces/password-hasher.interface.js";
+import type { ITotpService } from "../../domain/interfaces/totp-service.interface.js";
+import type { ITwoFactorRepository } from "../../domain/interfaces/two-factor-repository.interface.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
 
 export interface EnableOtpInput {
   userId: string;
@@ -11,29 +14,54 @@ export interface EnableOtpInput {
   code: string;
 }
 
-export const enableOtpUsecase = (
-  userRepository: IUserRepository,
-  otpBackupCodeRepository: IOtpBackupCodeRepository,
-) => {
-  return async (input: EnableOtpInput) => {
-    const result = await verify({ secret: input.secret, token: input.code });
+export interface EnableOtpResult {
+  message: string;
+  backupCodes: string[];
+}
 
-    if (!result.valid) {
-      throw new AppError("Invalid OTP code", 400);
+export class EnableOtpUseCase {
+  static readonly BACKUP_CODE_COUNT = 5;
+
+  private readonly userRepository: IUserRepository;
+  private readonly twoFactorRepository: ITwoFactorRepository;
+  private readonly totpService: ITotpService;
+  private readonly backupCodeGenerator: IBackupCodeGenerator;
+  private readonly passwordHasher: IPasswordHasher;
+
+  constructor(
+    userRepository: IUserRepository,
+    twoFactorRepository: ITwoFactorRepository,
+    totpService: ITotpService,
+    backupCodeGenerator: IBackupCodeGenerator,
+    passwordHasher: IPasswordHasher,
+  ) {
+    this.userRepository = userRepository;
+    this.twoFactorRepository = twoFactorRepository;
+    this.totpService = totpService;
+    this.backupCodeGenerator = backupCodeGenerator;
+    this.passwordHasher = passwordHasher;
+  }
+
+  async execute(input: EnableOtpInput): Promise<EnableOtpResult> {
+    const user = await this.userRepository.findById(input.userId);
+
+    if (!user) {
+      throw new UnauthorizedError();
     }
 
-    await userRepository.update(input.userId, {
-      otp_secret: input.secret,
-      otp_enable: true,
-    });
+    if (!(await this.totpService.verify(input.secret, input.code))) {
+      throw new ValidationError("Invalid OTP code");
+    }
 
-    const backupCodes = generateBackupCodes(5);
-    const codesHash = await Promise.all(
-      backupCodes.map((code) => bcrypt.hash(code, 12)),
+    const backupCodes = this.backupCodeGenerator.generate(
+      EnableOtpUseCase.BACKUP_CODE_COUNT,
+    );
+    const hashes = await Promise.all(
+      backupCodes.map((backupCode) => this.passwordHasher.hash(backupCode)),
     );
 
-    await otpBackupCodeRepository.upsert(input.userId, codesHash);
+    await this.twoFactorRepository.enable(user.id, input.secret, hashes);
 
     return { message: "2FA enabled successfully", backupCodes };
-  };
-};
+  }
+}

@@ -1,19 +1,13 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import userRoutes from "./routes/user.routes.js";
-import authRoutes from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
-import { errorHandler } from "./middlewares/error-handler.middleware.js";
-import otpRoutes from "./routes/otp.routes.js";
-import productRoutes from "./routes/product.routes.js";
-import storeRoutes from "./routes/store.routes.js";
-
-export const app = express();
-
 import rateLimit from "express-rate-limit";
 import orderRoutes from "./routes/order.routes.js";
-import categoryRoutes from "./routes/category.routes.js";
+import { container } from "./config/container.js";
+import { errorHandler } from "./middlewares/error-handler.middleware.js";
+
+export const app = express();
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -40,12 +34,12 @@ app.get("/api/health", (req: Request, res: Response) => {
     .json({ status: "ok", message: "Nature Horse API is running" });
 });
 
-app.use("/api/users", userRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/otp", otpRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/stores", storeRoutes);
+app.use("/api/users", container.userRoutes.router);
+app.use("/api/auth", container.authRoutes.router);
+app.use("/api/otp", container.otpRoutes.router);
+app.use("/api/products", container.productRoutes.router);
 app.use("/api/orders", orderRoutes);
-app.use("/api/categories", categoryRoutes);
+app.use("/api/stores", container.storeRoutes.router);
+app.use("/api/categories", container.categoryRoutes.router);
 
 app.use(errorHandler);

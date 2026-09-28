@@ -1,15 +1,16 @@
 import { Router } from "express";
-import { authController } from "../controllers/auth.controller.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import type { AuthController } from "../controllers/auth.controller.js";
+import type { RouteGuards } from "../middlewares/route-guards.js";
 
-const router = Router();
+export class AuthRoutes {
+  readonly router: Router;
 
-// Post
-router.post("/register", authController.register);
-router.post("/login", authController.login);
-router.post("/logout", requireAuth, authController.logout);
+  constructor(controller: AuthController, guards: RouteGuards) {
+    this.router = Router();
 
-// Get
-router.get("/me", requireAuth, authController.me);
-
-export default router;
+    this.router.post("/register", controller.register);
+    this.router.post("/login", controller.login);
+    this.router.post("/logout", guards.requireAuth, controller.logout);
+    this.router.get("/me", guards.requireAuth, controller.me);
+  }
+}

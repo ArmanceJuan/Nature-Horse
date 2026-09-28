@@ -1,41 +1,23 @@
-import { getCurrentUserUsecase } from "./get-current-user.usecase.js";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
+import { GetCurrentUserUseCase } from "./get-current-user.usecase.js";
+import { UnauthorizedError } from "../../domain/errors/http-errors.js";
+import { buildUser } from "../../tests/builders/user.builder.js";
+import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
-describe("getCurrentUserUsecase", () => {
-  const user = {
-    id: "u1",
-    email: "admin@example.com",
-    password: "hashed",
-    firstName: "Admin",
-    lastName: "Test",
-    phone: null,
-    role: "ADMIN",
-    otp_enable: false,
-    otp_secret: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  } as unknown as User;
-
-  const buildRepository = (found: User | null): IUserRepository => ({
-    findAll: async () => [],
-    findById: async () => found,
-    findByEmail: async () => null,
-    create: async () => user,
-    update: async () => user,
-  });
-
+describe("GetCurrentUserUseCase", () => {
   it("returns the user matching the token", async () => {
-    const getCurrentUser = getCurrentUserUsecase(buildRepository(user));
+    const user = buildUser({ id: "u1" });
+    const useCase = new GetCurrentUserUseCase(
+      new InMemoryUserRepository([user]),
+    );
 
-    expect(await getCurrentUser("u1")).toEqual(user);
+    expect(await useCase.execute("u1")).toEqual(user);
   });
 
-  it("throws 401 when the account no longer exists", async () => {
-    const getCurrentUser = getCurrentUserUsecase(buildRepository(null));
+  it("treats a token whose account no longer exists as unauthenticated", async () => {
+    const useCase = new GetCurrentUserUseCase(new InMemoryUserRepository());
 
-    await expect(getCurrentUser("ghost")).rejects.toMatchObject({
-      statusCode: 401,
-    });
+    await expect(useCase.execute("ghost")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
   });
 });

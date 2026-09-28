@@ -1,16 +1,30 @@
-import { getAllCategoriesUsecase } from "./get-all-categories.usecase.js";
-import { ICategoryRepository } from "../../domain/interfaces/category-repository.interface.js";
+import { GetAllCategoriesUseCase } from "./get-all-categories.usecase.js";
+import { buildCategory } from "../../tests/builders/category.builder.js";
+import { InMemoryCategoryRepository } from "../../tests/fakes/in-memory-category.repository.js";
 
-describe("getAllCategoriesUsecase", () => {
+describe("GetAllCategoriesUseCase", () => {
   it("returns the categories provided by the repository", async () => {
     const categories = [
-      { id: "1", slug: "cavalier", name: "Cavalier", position: 1 },
-      { id: "2", slug: "cheval", name: "Cheval", position: 2 },
+      buildCategory({
+        id: "c1",
+        slug: "cavalier",
+        name: "Cavalier",
+        position: 1,
+      }),
+      buildCategory({ id: "c2", slug: "cheval", name: "Cheval", position: 2 }),
     ];
-    const repository: ICategoryRepository = { findAll: async () => categories };
+    const useCase = new GetAllCategoriesUseCase(
+      new InMemoryCategoryRepository(categories),
+    );
 
-    const getAllCategories = getAllCategoriesUsecase(repository);
+    expect(await useCase.execute()).toEqual(categories);
+  });
 
-    expect(await getAllCategories()).toEqual(categories);
+  it("returns an empty list when there is no category", async () => {
+    const useCase = new GetAllCategoriesUseCase(
+      new InMemoryCategoryRepository(),
+    );
+
+    expect(await useCase.execute()).toEqual([]);
   });
 });

@@ -1,19 +1,20 @@
-import { Product, ProductStatus } from "../entities/product.entity.js";
-import { ProductFilters } from "../entities/product-filters.entity.js";
-import { CreateProductInput } from "../entities/create-product-input.entity.js";
-import { UpdateProductInput } from "../entities/update-product-input.entity.js";
+import type { CreateProductInput } from "../entities/create-product-input.entity.js";
+import type { ProductCriteria } from "../entities/product-filters.entity.js";
+import type { Product, ProductStatus } from "../entities/product.entity.js";
+import type { UpdateProductInput } from "../entities/update-product-input.entity.js";
 
 export interface IProductRepository {
-  findAll: (filters: ProductFilters) => Promise<Product[]>;
-  findById: (id: string) => Promise<Product | null>;
-  findByVariantId: (variantId: string) => Promise<Product | null>;
-  create: (data: CreateProductInput) => Promise<Product>;
-  update: (id: string, data: UpdateProductInput) => Promise<Product>;
-  delete: (id: string) => Promise<void>;
-  updateStatus: (id: string, status: ProductStatus) => Promise<Product>;
-  adjustStock: (
+  findAll(criteria: ProductCriteria): Promise<Product[]>;
+  findById(idOrSlug: string): Promise<Product | null>;
+  findByVariantId(variantId: string): Promise<Product | null>;
+  create(data: CreateProductInput): Promise<Product>;
+  update(id: string, changes: UpdateProductInput): Promise<Product>;
+  delete(id: string): Promise<void>;
+  hasBeenOrdered(id: string): Promise<boolean>;
+  updateStatus(id: string, status: ProductStatus): Promise<Product>;
+  adjustStock(
     variantId: string,
     storeId: string,
     quantity: number,
-  ) => Promise<Product>;
+  ): Promise<Product>;
 }

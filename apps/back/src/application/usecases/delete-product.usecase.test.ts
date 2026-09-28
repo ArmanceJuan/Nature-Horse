@@ -1,63 +1,40 @@
-import { deleteProductUsecase } from "./delete-product.usecase.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { Product } from "../../domain/entities/product.entity.js";
+import { DeleteProductUseCase } from "./delete-product.usecase.js";
+import {
+  ConflictError,
+  NotFoundError,
+} from "../../domain/errors/http-errors.js";
+import { buildProduct } from "../../tests/builders/product.builder.js";
+import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
 
-describe("deleteProductUsecase", () => {
-  const fakeProduct: Product = {
-    id: "1",
-    name: "Test",
-    description: "desc",
-    price: 50,
-    collection: "textile-performance",
-    discipline: "loisir",
-    specs: [],
-    shippingInfo: "info",
-    isNew: false,
-    isPopular: false,
-    images: [],
-    variants: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+describe("DeleteProductUseCase", () => {
+  it("deletes a product that was never ordered", async () => {
+    const repository = new InMemoryProductRepository([
+      buildProduct({ id: "p1", slug: "selle" }),
+    ]);
+    const useCase = new DeleteProductUseCase(repository);
 
-  it("should delete the product when it exists", async () => {
-    let deleteWasCalled = false;
+    await useCase.execute("selle");
 
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => fakeProduct,
-      create: async () => fakeProduct,
-      update: async () => fakeProduct,
-      delete: async () => {
-        deleteWasCalled = true;
-      },
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-    };
-
-    const deleteProduct = deleteProductUsecase(fakeRepository);
-    await deleteProduct("1");
-
-    expect(deleteWasCalled).toBe(true);
+    expect(repository.deletedIds).toEqual(["p1"]);
+    expect(await repository.findById("p1")).toBeNull();
   });
 
-  it("should throw 404 when product does not exist", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-      create: async () => fakeProduct,
-      update: async () => fakeProduct,
-      delete: async () => {},
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  it("refuses to delete a product that has already been ordered", async () => {
+    const repository = new InMemoryProductRepository(
+      [buildProduct({ id: "p1" })],
+      ["p1"],
+    );
+    const useCase = new DeleteProductUseCase(repository);
 
-    const deleteProduct = deleteProductUsecase(fakeRepository);
+    await expect(useCase.execute("p1")).rejects.toBeInstanceOf(ConflictError);
+    expect(repository.deletedIds).toEqual([]);
+  });
 
-    await expect(deleteProduct("unknown")).rejects.toMatchObject({
-      statusCode: 404,
-    });
+  it("throws a NotFoundError for an unknown product", async () => {
+    const useCase = new DeleteProductUseCase(new InMemoryProductRepository());
+
+    await expect(useCase.execute("unknown")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
   });
 });

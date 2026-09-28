@@ -1,72 +1,32 @@
-import { generateOtpSecretUsecase } from "./generate-otp-secret.usecase.js";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { IQrCodeGenerator } from "../../domain/interfaces/qr-code-generator.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
+import { GenerateOtpSecretUseCase } from "./generate-otp-secret.usecase.js";
+import { NotFoundError } from "../../domain/errors/http-errors.js";
+import { buildUser } from "../../tests/builders/user.builder.js";
+import { FakeQrCodeGenerator } from "../../tests/fakes/fake-qr-code.generator.js";
+import { FakeTotpService } from "../../tests/fakes/fake-totp.service.js";
+import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
-describe("generateOtpSecretUsecase", () => {
-  const existingUser: User = {
-    id: "1",
-    email: "test@example.com",
-    password: "hashed",
-    firstName: "Jean",
-    lastName: "Dupont",
-    phone: null,
-    role: "CLIENT",
-    otp_enable: false,
-    otp_secret: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+const build = () =>
+  new GenerateOtpSecretUseCase(
+    new InMemoryUserRepository([
+      buildUser({ id: "u1", email: "marie@example.com" }),
+    ]),
+    new FakeTotpService(),
+    new FakeQrCodeGenerator(),
+  );
 
-  const fakeQrCodeGenerator: IQrCodeGenerator = {
-    generate: async () => "data:image/png;base64,fake-qr-code",
-  };
+describe("GenerateOtpSecretUseCase", () => {
+  it("returns a new secret together with a QR code labelled with the email of the user", async () => {
+    const result = await build().execute("u1");
 
-  it("should return a secret and QR code for an existing user", async () => {
-    const fakeUserRepository: IUserRepository = {
-      findAll: async () => [],
-      findById: async () => existingUser,
-      findByEmail: async () => null,
-      create: async (data) => ({
-        id: "1",
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
-      update: async (id, data) => ({ ...existingUser, ...data }),
-    };
-
-    const generateOtpSecret = generateOtpSecretUsecase(
-      fakeUserRepository,
-      fakeQrCodeGenerator,
+    expect(result.secret).toBe(FakeTotpService.SECRET);
+    expect(result.qrCode).toBe(
+      `qr:marie@example.com:${FakeTotpService.SECRET}`,
     );
-    const result = await generateOtpSecret("1");
-
-    expect(result.secret).toBeDefined();
-    expect(result.qrCode).toBe("data:image/png;base64,fake-qr-code");
   });
 
-  it("should throw 404 when user does not exist", async () => {
-    const fakeUserRepository: IUserRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-      findByEmail: async () => null,
-      create: async (data) => ({
-        id: "1",
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
-      update: async (id, data) => ({ ...existingUser, ...data }),
-    };
-
-    const generateOtpSecret = generateOtpSecretUsecase(
-      fakeUserRepository,
-      fakeQrCodeGenerator,
+  it("throws a NotFoundError for an unknown user", async () => {
+    await expect(build().execute("ghost")).rejects.toBeInstanceOf(
+      NotFoundError,
     );
-
-    await expect(generateOtpSecret("unknown-id")).rejects.toMatchObject({
-      statusCode: 404,
-    });
   });
 });

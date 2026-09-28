@@ -1,21 +1,24 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { otpController } from "../controllers/otp.controller.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
+import type { OtpController } from "../controllers/otp.controller.js";
+import type { RouteGuards } from "../middlewares/route-guards.js";
 
-const router = Router();
+export class OtpRoutes {
+  readonly router: Router;
 
-const otpLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 4,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many attempts. Please try again in 1 minute." },
-});
+  constructor(controller: OtpController, guards: RouteGuards) {
+    this.router = Router();
 
-router.use(requireAuth);
+    const limiter = rateLimit({
+      windowMs: 60 * 1000,
+      max: 4,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { message: "Too many attempts. Please try again in 1 minute." },
+    });
 
-router.get("/generate-secret", otpController.generateSecret);
-router.post("/enable", otpLimiter, otpController.enable);
-
-export default router;
+    this.router.use(guards.requireAuth);
+    this.router.get("/generate-secret", controller.generateSecret);
+    this.router.post("/enable", limiter, controller.enable);
+  }
+}

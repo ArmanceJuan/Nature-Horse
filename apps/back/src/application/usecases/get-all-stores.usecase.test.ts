@@ -1,32 +1,23 @@
-import { getAllStoresUsecase } from "./get-all-stores.usecase.js";
-import { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
-import { Store } from "../../domain/entities/store.entity.js";
+import { GetAllStoresUseCase } from "./get-all-stores.usecase.js";
+import { buildStore } from "../../tests/builders/store.builder.js";
+import { InMemoryStoreRepository } from "../../tests/fakes/in-memory-store.repository.js";
 
-describe("getAllStoresUsecase", () => {
-  const fakeStores: Store[] = [
-    {
-      id: "1",
-      name: "Test Store",
-      address: "1 rue Test",
-      postalCode: "75000",
-      city: "Paris",
-      phone: null,
-      email: null,
-      openingHours: ["Lun-Ven: 9h-18h"],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
+describe("GetAllStoresUseCase", () => {
+  it("returns every store held by the repository", async () => {
+    const stores = [
+      buildStore({ id: "s1" }),
+      buildStore({ id: "s2", city: "Aix-en-Provence" }),
+    ];
+    const useCase = new GetAllStoresUseCase(
+      new InMemoryStoreRepository(stores),
+    );
 
-  it("should return all stores from the repository", async () => {
-    const fakeRepository: IStoreRepository = {
-      findAll: async () => fakeStores,
-      findById: async () => null,
-    };
+    expect(await useCase.execute()).toEqual(stores);
+  });
 
-    const getAllStores = getAllStoresUsecase(fakeRepository);
-    const result = await getAllStores();
+  it("returns an empty list when there is no store", async () => {
+    const useCase = new GetAllStoresUseCase(new InMemoryStoreRepository());
 
-    expect(result).toEqual(fakeStores);
+    expect(await useCase.execute()).toEqual([]);
   });
 });

@@ -1,9 +1,9 @@
 import { Router } from "express";
+import { container } from "../config/container.js";
 import { orderController } from "../controllers/order.controller.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
-import { requireRole } from "../middlewares/role.middleware.js";
 
 const router = Router();
+const { requireAuth, requireRole } = container.guards;
 
 router.post("/", requireAuth, orderController.create);
 router.get("/me", requireAuth, orderController.getMine);

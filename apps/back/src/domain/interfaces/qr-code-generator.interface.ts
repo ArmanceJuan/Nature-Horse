@@ -1,3 +1,3 @@
 export interface IQrCodeGenerator {
-  generate: (username: string, secret: string) => Promise<string>;
+  generate(label: string, secret: string): Promise<string>;
 }

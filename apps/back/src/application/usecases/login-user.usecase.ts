@@ -1,9 +1,10 @@
-import { verify } from "otplib";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { verifyPassword } from "../../infrastructure/security/password.util.js";
-import { generateToken } from "../../infrastructure/security/jwt.util.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { sanitizeUser } from "../utils/sanitize-user.util.js";
+import type { User } from "../../domain/entities/user.entity.js";
+import { UnauthorizedError } from "../../domain/errors/http-errors.js";
+import type { IPasswordHasher } from "../../domain/interfaces/password-hasher.interface.js";
+import type { ITokenService } from "../../domain/interfaces/token-service.interface.js";
+import type { ITotpService } from "../../domain/interfaces/totp-service.interface.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
+import { Email } from "../../domain/value-objects/email.js";
 
 export interface LoginInput {
   email: string;
@@ -11,41 +12,66 @@ export interface LoginInput {
   code?: string;
 }
 
-export const loginUserUsecase = (userRepository: IUserRepository) => {
-  return async (input: LoginInput) => {
-    const user = await userRepository.findByEmail(input.email);
+export type LoginResult =
+  | { requiresOtp: true }
+  | { requiresOtp: false; user: User; token: string };
+
+export class LoginUserUseCase {
+  private readonly userRepository: IUserRepository;
+  private readonly passwordHasher: IPasswordHasher;
+  private readonly totpService: ITotpService;
+  private readonly tokenService: ITokenService;
+
+  constructor(
+    userRepository: IUserRepository,
+    passwordHasher: IPasswordHasher,
+    totpService: ITotpService,
+    tokenService: ITokenService,
+  ) {
+    this.userRepository = userRepository;
+    this.passwordHasher = passwordHasher;
+    this.totpService = totpService;
+    this.tokenService = tokenService;
+  }
+
+  async execute(input: LoginInput): Promise<LoginResult> {
+    const user = await this.findUser(input.email);
 
     if (!user) {
-      throw new AppError("Invalid credentials", 401);
+      await this.passwordHasher.simulateVerification(input.password);
+      throw new UnauthorizedError("Invalid credentials");
     }
 
-    const isPasswordValid = await verifyPassword(input.password, user.password);
-
-    if (!isPasswordValid) {
-      throw new AppError("Invalid credentials", 401);
+    if (!(await this.passwordHasher.verify(input.password, user.password))) {
+      throw new UnauthorizedError("Invalid credentials");
     }
 
-    if (user.otp_enable) {
+    if (user.otpEnabled) {
       if (!input.code) {
-        return { requiresOtp: true as const };
+        return { requiresOtp: true };
       }
 
-      const result = await verify({
-        secret: user.otp_secret as string,
-        token: input.code,
-      });
-
-      if (!result.valid) {
-        throw new AppError("Invalid OTP code", 401);
-      }
+      await this.ensureOtpIsValid(user, input.code);
     }
 
-    const token = generateToken({ userId: user.id, role: user.role });
+    const token = this.tokenService.sign({ userId: user.id, role: user.role });
 
-    return {
-      requiresOtp: false as const,
-      user: sanitizeUser(user),
-      token,
-    };
-  };
-};
+    return { requiresOtp: false, user, token };
+  }
+
+  private async findUser(rawEmail: string): Promise<User | null> {
+    const email = Email.tryOf(rawEmail);
+
+    return email ? this.userRepository.findByEmail(email) : null;
+  }
+
+  private async ensureOtpIsValid(user: User, code: string): Promise<void> {
+    const isValid =
+      user.otpSecret !== null &&
+      (await this.totpService.verify(user.otpSecret, code));
+
+    if (!isValid) {
+      throw new UnauthorizedError("Invalid OTP code");
+    }
+  }
+}

@@ -1,14 +1,21 @@
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
+import type { Store } from "../../domain/entities/store.entity.js";
+import { NotFoundError } from "../../domain/errors/http-errors.js";
+import type { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
 
-export const getStoreByIdUsecase = (storeRepository: IStoreRepository) => {
-  return async (id: string) => {
-    const store = await storeRepository.findById(id);
+export class GetStoreByIdUseCase {
+  private readonly storeRepository: IStoreRepository;
+
+  constructor(storeRepository: IStoreRepository) {
+    this.storeRepository = storeRepository;
+  }
+
+  async execute(id: string): Promise<Store> {
+    const store = await this.storeRepository.findById(id);
 
     if (!store) {
-      throw new AppError("Store not found", 404);
+      throw new NotFoundError("Store not found");
     }
 
     return store;
-  };
-};
+  }
+}

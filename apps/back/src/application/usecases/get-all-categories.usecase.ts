@@ -1,9 +1,14 @@
-import { ICategoryRepository } from "../../domain/interfaces/category-repository.interface.js";
+import type { Category } from "../../domain/entities/category.entity.js";
+import type { ICategoryRepository } from "../../domain/interfaces/category-repository.interface.js";
 
-export const getAllCategoriesUsecase = (
-  categoryRepository: ICategoryRepository,
-) => {
-  return async () => {
-    return categoryRepository.findAll();
-  };
-};
+export class GetAllCategoriesUseCase {
+  private readonly categoryRepository: ICategoryRepository;
+
+  constructor(categoryRepository: ICategoryRepository) {
+    this.categoryRepository = categoryRepository;
+  }
+
+  execute(): Promise<Category[]> {
+    return this.categoryRepository.findAll();
+  }
+}

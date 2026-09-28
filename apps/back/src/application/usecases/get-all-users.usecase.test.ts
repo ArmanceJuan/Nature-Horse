@@ -1,39 +1,31 @@
-import { getAllUsersUsecase } from "./get-all-users.usecase.js";
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { User } from "../../domain/entities/user.entity.js";
+import { GetAllUsersUseCase } from "./get-all-users.usecase.js";
+import { buildUser } from "../../tests/builders/user.builder.js";
+import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
-describe("getAllUsersUsecase", () => {
-  it("should return all users from the repository", async () => {
-    const fakeUsers: User[] = [
-      {
-        id: "1",
-        email: "spirit.riviere@example.com",
-        password: "hashed",
-        firstName: "Spirit",
-        lastName: "Rivière",
-        phone: null,
-        role: "CLIENT",
-        otp_enable: false,
-        otp_secret: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+describe("GetAllUsersUseCase", () => {
+  it("returns every user held by the repository", async () => {
+    const users = [
+      buildUser({ id: "u1" }),
+      buildUser({ id: "u2", email: "other@example.com" }),
     ];
+    const useCase = new GetAllUsersUseCase(new InMemoryUserRepository(users));
 
-    const fakeUserRepository: IUserRepository = {
-      findAll: async () => fakeUsers,
-      findById: async () => null,
-      findByEmail: async () => null,
-      create: async () => fakeUsers[0],
-      update: async () => fakeUsers[0],
-    };
+    expect(await useCase.execute()).toEqual(users);
+  });
 
-    const getAllUsers = getAllUsersUsecase(fakeUserRepository);
-    const result = await getAllUsers();
+  it("returns users that cannot expose their secrets once serialized", async () => {
+    const users = [buildUser({ otpSecret: "SECRET" })];
+    const useCase = new GetAllUsersUseCase(new InMemoryUserRepository(users));
 
-    const { password, ...expectedUser } = fakeUsers[0];
+    const serialized = JSON.stringify(await useCase.execute());
 
-    expect(result).toEqual([expectedUser]);
-    expect(result).toHaveLength(1);
+    expect(serialized).not.toContain("hashed:Password1!");
+    expect(serialized).not.toContain("SECRET");
+  });
+
+  it("returns an empty list when there is no user", async () => {
+    const useCase = new GetAllUsersUseCase(new InMemoryUserRepository());
+
+    expect(await useCase.execute()).toEqual([]);
   });
 });

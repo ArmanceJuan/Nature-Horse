@@ -1,14 +1,29 @@
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
+import {
+  ConflictError,
+  NotFoundError,
+} from "../../domain/errors/http-errors.js";
+import type { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
 
-export const deleteProductUsecase = (productRepository: IProductRepository) => {
-  return async (id: string) => {
-    const existing = await productRepository.findById(id);
+export class DeleteProductUseCase {
+  private readonly productRepository: IProductRepository;
 
-    if (!existing) {
-      throw new AppError("Product not found", 404);
+  constructor(productRepository: IProductRepository) {
+    this.productRepository = productRepository;
+  }
+
+  async execute(idOrSlug: string): Promise<void> {
+    const product = await this.productRepository.findById(idOrSlug);
+
+    if (!product) {
+      throw new NotFoundError("Product not found");
     }
 
-    await productRepository.delete(id);
-  };
-};
+    if (await this.productRepository.hasBeenOrdered(product.id)) {
+      throw new ConflictError(
+        "This product has already been ordered and cannot be deleted. Archive it instead.",
+      );
+    }
+
+    await this.productRepository.delete(product.id);
+  }
+}

@@ -1,15 +1,44 @@
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import type { Product } from "../../domain/entities/product.entity.js";
+import type { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
+import {
+  NotFoundError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import type { ICategoryRepository } from "../../domain/interfaces/category-repository.interface.js";
+import type { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
 
-export const updateProductUsecase = (productRepository: IProductRepository) => {
-  return async (id: string, data: UpdateProductInput) => {
-    const existing = await productRepository.findById(id);
+export class UpdateProductUseCase {
+  private readonly productRepository: IProductRepository;
+  private readonly categoryRepository: ICategoryRepository;
 
-    if (!existing) {
-      throw new AppError("Product not found", 404);
+  constructor(
+    productRepository: IProductRepository,
+    categoryRepository: ICategoryRepository,
+  ) {
+    this.productRepository = productRepository;
+    this.categoryRepository = categoryRepository;
+  }
+
+  async execute(
+    idOrSlug: string,
+    changes: UpdateProductInput,
+  ): Promise<Product> {
+    const product = await this.productRepository.findById(idOrSlug);
+
+    if (!product) {
+      throw new NotFoundError("Product not found");
     }
 
-    return productRepository.update(id, data);
-  };
-};
+    if (changes.categoryId !== undefined) {
+      const category = await this.categoryRepository.findById(
+        changes.categoryId,
+      );
+
+      if (!category) {
+        throw new ValidationError("Category not found");
+      }
+    }
+
+    return this.productRepository.update(product.id, changes);
+  }
+}

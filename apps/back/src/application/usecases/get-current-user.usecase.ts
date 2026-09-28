@@ -1,14 +1,21 @@
-import { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import type { User } from "../../domain/entities/user.entity.js";
+import { UnauthorizedError } from "../../domain/errors/http-errors.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
 
-export const getCurrentUserUsecase = (userRepository: IUserRepository) => {
-  return async (userId: string) => {
-    const user = await userRepository.findById(userId);
+export class GetCurrentUserUseCase {
+  private readonly userRepository: IUserRepository;
+
+  constructor(userRepository: IUserRepository) {
+    this.userRepository = userRepository;
+  }
+
+  async execute(userId: string): Promise<User> {
+    const user = await this.userRepository.findById(userId);
 
     if (!user) {
-      throw new AppError("Authentication required", 401);
+      throw new UnauthorizedError();
     }
 
     return user;
-  };
-};
+  }
+}

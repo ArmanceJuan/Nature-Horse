@@ -1,8 +1,11 @@
 import { Router } from "express";
-import { categoryController } from "../controllers/category.controller.js";
+import type { CategoryController } from "../controllers/category.controller.js";
 
-const router = Router();
+export class CategoryRoutes {
+  readonly router: Router;
 
-router.get("/", categoryController.getAll);
-
-export default router;
+  constructor(controller: CategoryController) {
+    this.router = Router();
+    this.router.get("/", controller.getAll);
+  }
+}

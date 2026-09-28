@@ -24,7 +24,7 @@ export const TwoFactorSection = () => {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  const isEnabled = user?.otp_enable === true || backupCodes !== null;
+  const isEnabled = user?.otpEnabled === true || backupCodes !== null;
 
   const cancelSetup = () => {
     setQrCode(null);

@@ -1,103 +1,64 @@
-import { getProductByIdUsecase } from "./get-product-by-id.usecase.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
+import { GetProductByIdUseCase } from "./get-product-by-id.usecase.js";
+import { NotFoundError } from "../../domain/errors/http-errors.js";
 import {
-  Product,
-  ProductStatus,
-} from "../../domain/entities/product.entity.js";
+  buildProduct,
+  buildVariant,
+} from "../../tests/builders/product.builder.js";
+import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
 
-describe("getProductByIdUsecase", () => {
-  const fakeProduct: Product = {
-    id: "1",
-    name: "Test Product",
-    description: "desc",
-    price: 100,
-    collection: "haute-sellerie",
-    discipline: "dressage",
-    specs: [],
-    shippingInfo: "info",
-    isNew: false,
-    isPopular: false,
-    images: [],
-    variants: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    status: "ACTIVE",
-  };
+describe("GetProductByIdUseCase", () => {
+  const product = buildProduct({ id: "p1", slug: "selle" });
 
-  it("should return the product when found", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => fakeProduct,
-      create: async () => fakeProduct,
-      update: function (
-        id: string,
-        data: UpdateProductInput,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      delete: function (id: string): Promise<void> {
-        throw new Error("Function not implemented.");
-      },
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-      updateStatus: function (
-        id: string,
-        status: ProductStatus,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      adjustStock: function (
-        variantId: string,
-        storeId: string,
-        quantity: number,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  it("finds an active product by its id", async () => {
+    const useCase = new GetProductByIdUseCase(
+      new InMemoryProductRepository([product]),
+    );
 
-    const getProductById = getProductByIdUsecase(fakeRepository);
-    const result = await getProductById("1");
-
-    expect(result).toEqual(fakeProduct);
+    expect(await useCase.execute("p1")).toEqual(product);
   });
 
-  it("should throw 404 when product does not exist", async () => {
-    const fakeRepository: IProductRepository = {
-      findAll: async () => [],
-      findById: async () => null,
-      create: async () => fakeProduct,
-      update: function (
-        id: string,
-        data: UpdateProductInput,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      delete: function (id: string): Promise<void> {
-        throw new Error("Function not implemented.");
-      },
-      findByVariantId: function (variantId: string): Promise<Product | null> {
-        throw new Error("Function not implemented.");
-      },
-      updateStatus: function (
-        id: string,
-        status: ProductStatus,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-      adjustStock: function (
-        variantId: string,
-        storeId: string,
-        quantity: number,
-      ): Promise<Product> {
-        throw new Error("Function not implemented.");
-      },
-    };
+  it("finds an active product by its slug", async () => {
+    const useCase = new GetProductByIdUseCase(
+      new InMemoryProductRepository([product]),
+    );
 
-    const getProductById = getProductByIdUsecase(fakeRepository);
+    expect(await useCase.execute("selle")).toEqual(product);
+  });
 
-    await expect(getProductById("unknown")).rejects.toMatchObject({
+  it("still returns an active product that is out of stock", async () => {
+    const soldOut = buildProduct({
+      id: "p2",
+      slug: "epuise",
+      variants: [buildVariant({ stockByStore: { "store-1": 0 } })],
+    });
+    const useCase = new GetProductByIdUseCase(
+      new InMemoryProductRepository([soldOut]),
+    );
+
+    expect(await useCase.execute("epuise")).toEqual(soldOut);
+  });
+
+  it("throws a NotFoundError for an unknown product", async () => {
+    const useCase = new GetProductByIdUseCase(
+      new InMemoryProductRepository([product]),
+    );
+
+    await expect(useCase.execute("unknown")).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
+
+  it("hides an archived product", async () => {
+    const archived = buildProduct({
+      id: "p3",
+      slug: "archive",
+      status: "ARCHIVED",
+    });
+    const useCase = new GetProductByIdUseCase(
+      new InMemoryProductRepository([archived]),
+    );
+
+    await expect(useCase.execute("archive")).rejects.toMatchObject({
       statusCode: 404,
     });
   });

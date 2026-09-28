@@ -1,10 +1,18 @@
 import { Router } from "express";
-import { userController } from "../controllers/user.controller.js";
-import { requireAuth } from "../middlewares/auth.middleware.js";
-import { requireRole } from "../middlewares/role.middleware.js";
+import type { UserController } from "../controllers/user.controller.js";
+import type { RouteGuards } from "../middlewares/route-guards.js";
 
-const router = Router();
+export class UserRoutes {
+  readonly router: Router;
 
-router.get("/", requireAuth, requireRole("ADMIN"), userController.getAllUsers);
+  constructor(controller: UserController, guards: RouteGuards) {
+    this.router = Router();
 
-export default router;
+    this.router.get(
+      "/",
+      guards.requireAuth,
+      guards.requireRole("ADMIN"),
+      controller.getAll,
+    );
+  }
+}

@@ -2,7 +2,7 @@ import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { dbConfig } from "../src/config/prisma.js";
-import { hashPassword } from "../src/infrastructure/security/password.util.js";
+import { BcryptPasswordHasher } from "../src/infrastructure/security/bcrypt-password-hasher.js";
 import { seedCategories } from "./seed-categories.js";
 
 const adapter = new PrismaMariaDb(dbConfig);
@@ -14,7 +14,6 @@ interface SeedVariant {
   stockByStore: Record<string, number>;
 }
 
-// "id" is the public slug of the product; the database generates the real UUID.
 interface SeedProduct {
   id: string;
   name: string;
@@ -975,7 +974,7 @@ async function seedAdmin() {
     update: { role: "ADMIN" },
     create: {
       email: adminEmail,
-      password: await hashPassword(adminPassword),
+      password: await new BcryptPasswordHasher().hash(adminPassword),
       firstName: "Admin",
       lastName: "Nature Horse",
       role: "ADMIN",
