@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   BottomNavigation,
@@ -10,34 +11,77 @@ import HomeIcon from "@mui/icons-material/Home";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PlaceIcon from "@mui/icons-material/Place";
+import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import { ShopMenu } from "./ShopMenu.js";
 import { useCart } from "../../../features/cart/context/CartContext.js";
+import { useAuth } from "../../../features/auth/context/AuthContext.js";
+
+interface NavItem {
+  label: string;
+  path: string;
+  isActive: (pathname: string) => boolean;
+  icon: ReactNode;
+}
 
 export const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isShopMenuOpen, setIsShopMenuOpen] = useState(false);
   const { totalItems } = useCart();
+  const { user } = useAuth();
 
-  const navItems = [
-    { label: "Accueil", path: "/", icon: <HomeIcon /> },
-    { label: "Boutique", path: "/shop", icon: <StorefrontIcon /> },
+  const navItems: NavItem[] = [
+    {
+      label: "Accueil",
+      path: "/",
+      isActive: (pathname) => pathname === "/",
+      icon: <HomeIcon />,
+    },
+    {
+      label: "Boutique",
+      path: "/shop",
+      isActive: (pathname) => pathname === "/shop",
+      icon: <StorefrontIcon />,
+    },
     {
       label: "Panier",
       path: "/cart",
+      isActive: (pathname) => pathname === "/cart",
       icon: (
         <Badge badgeContent={totalItems} color="primary">
           <ShoppingCartIcon />
         </Badge>
       ),
     },
-    { label: "Boutiques", path: "/stores", icon: <PlaceIcon /> },
-    { label: "Admin", path: "/admin", icon: <DashboardIcon /> },
+    {
+      label: "Boutiques",
+      path: "/stores",
+      isActive: (pathname) => pathname === "/stores",
+      icon: <PlaceIcon />,
+    },
+    {
+      label: "Compte",
+      path: user ? "/account" : "/login",
+      isActive: (pathname) =>
+        ["/account", "/login", "/register"].includes(pathname),
+      icon: <PersonOutlinedIcon />,
+    },
   ];
 
-  const currentIndex = navItems.findIndex(
-    (item) => item.path === location.pathname,
+  if (user?.role === "ADMIN") {
+    navItems.push({
+      label: "Admin",
+      path: "/admin",
+      isActive: (pathname) => pathname.startsWith("/admin"),
+      icon: <DashboardIcon />,
+    });
+  }
+
+  const isCompact = navItems.length > 5;
+
+  const currentIndex = navItems.findIndex((item) =>
+    item.isActive(location.pathname),
   );
 
   const handleChange = (newValue: number) => {
@@ -67,9 +111,20 @@ export const BottomNav = () => {
         >
           {navItems.map((item) => (
             <BottomNavigationAction
-              key={item.path}
+              key={item.label}
               label={item.label}
               icon={item.icon}
+              sx={
+                isCompact
+                  ? {
+                      minWidth: 0,
+                      px: 0.5,
+                      "& .MuiBottomNavigationAction-label": {
+                        fontSize: "0.68rem",
+                      },
+                    }
+                  : undefined
+              }
             />
           ))}
         </BottomNavigation>

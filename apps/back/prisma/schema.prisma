@@ -13,6 +13,23 @@ enum Role {
   CLIENT
 }
 
+enum OrderStatus {
+  PENDING
+  READY_FOR_PICKUP
+  PICKED_UP
+  CANCELLED
+}
+
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum AlertStatus {
+  ACTIVE
+  HANDLED
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
@@ -27,6 +44,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   a2fBackupCode A2FBackupCode?
   orders        Order[]
+  stores        UserStore[]
 }
 
 model A2FBackupCode {
@@ -39,7 +57,7 @@ model A2FBackupCode {
 }
 
 model Store {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
   address      String
   postalCode   String
@@ -47,10 +65,20 @@ model Store {
   phone        String?
   email        String?
   openingHours Json
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   stocks       Stock[]
   orders       Order[]
+  staff        UserStore[]
+}
+
+model UserStore {
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, storeId])
 }
 
 model Attribute {
@@ -60,27 +88,36 @@ model Attribute {
 }
 
 model AttributeValue {
-  id          String                          @id @default(uuid())
+  id          String                         @id @default(uuid())
   attributeId String
-  attribute   Attribute                       @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  attribute   Attribute                      @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   value       String
   variants    ProductVariantAttributeValue[]
 
   @@unique([attributeId, value])
 }
 
-enum ProductStatus {
-  ACTIVE
-  ARCHIVED
+model Category {
+  id        String    @id @default(uuid())
+  slug      String    @unique
+  name      String
+  position  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
 }
 
 model Product {
   id           String           @id @default(uuid())
+  slug         String           @unique
   name         String
   description  String           @db.Text
   price        Float
   collection   String
   discipline   String
+  categoryId   String?
+  category     Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  status       ProductStatus    @default(ACTIVE)
   specs        Json
   shippingInfo String           @db.Text
   isNew        Boolean          @default(false)
@@ -89,7 +126,8 @@ model Product {
   updatedAt    DateTime         @updatedAt
   images       ProductImage[]
   variants     ProductVariant[]
-  status       ProductStatus    @default(ACTIVE)
+
+  @@index([categoryId])
 }
 
 model ProductImage {
@@ -103,12 +141,12 @@ model ProductImage {
 }
 
 model ProductVariant {
-  id              String                          @id @default(uuid())
+  id              String                         @id @default(uuid())
   productId       String
-  product         Product                         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku             String?                         @unique
-  createdAt       DateTime                        @default(now())
-  updatedAt       DateTime                        @updatedAt
+  product         Product                        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku             String?                        @unique
+  createdAt       DateTime                       @default(now())
+  updatedAt       DateTime                       @updatedAt
   attributeValues ProductVariantAttributeValue[]
   stocks          Stock[]
   orderItems      OrderItem[]
@@ -131,29 +169,44 @@ model Stock {
   storeId          String
   store            Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
   quantity         Int            @default(0)
+  alertThreshold   Int            @default(5)
   updatedAt        DateTime       @updatedAt
+  alerts           StockAlert[]
 
   @@unique([productVariantId, storeId])
 }
 
-enum OrderStatus {
-  PENDING
-  READY_FOR_PICKUP
-  PICKED_UP
-  CANCELLED
+model StockAlert {
+  id         String      @id @default(uuid())
+  stockId    String
+  stock      Stock       @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  stockLevel Int
+  status     AlertStatus @default(ACTIVE)
+  createdAt  DateTime    @default(now())
+  handledAt  DateTime?
+
+  @@index([status])
 }
 
 model Order {
-  id         String      @id @default(uuid())
-  userId     String
-  user       User        @relation(fields: [userId], references: [id])
-  storeId    String
-  store      Store       @relation(fields: [storeId], references: [id])
-  status     OrderStatus @default(PENDING)
-  totalPrice Float
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  items      OrderItem[]
+  id                String      @id @default(uuid())
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  storeId           String
+  store             Store       @relation(fields: [storeId], references: [id])
+  customerEmail     String
+  customerFirstName String
+  customerLastName  String
+  customerPhone     String?
+  trackingToken     String      @unique
+  status            OrderStatus @default(PENDING)
+  totalPrice        Float
+  pickupReadyAt     DateTime
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  items             OrderItem[]
+
+  @@index([customerEmail])
 }
 
 model OrderItem {

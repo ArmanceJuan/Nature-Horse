@@ -1,34 +1,36 @@
 import {
+  Box,
   Drawer,
   List,
   ListItemButton,
   ListItemText,
-  useTheme,
+  Typography,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useCategories } from "../../../features/catalog/hooks/useCategories.js";
+import {
+  ALL_PRODUCTS_ITEM,
+  NEW_PRODUCTS_ITEM,
+  buildCategoryItems,
+} from "../../../features/catalog/utils/shop-nav.js";
 
 interface ShopMenuProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SHOP_CATEGORIES = [
-  { label: "Voir tout", slug: null },
-  { label: "Cavalier", slug: "cavalier" },
-  { label: "Cheval", slug: "cheval" },
-  { label: "Écurie", slug: "ecurie" },
-  { label: "Soin", slug: "soin" },
-  { label: "Chiens Chats", slug: "chiens-chats" },
-  { label: "Promotions", slug: "promotions" },
-  { label: "Nouveauté", slug: "nouveaute" },
-];
-
 export const ShopMenu = ({ open, onClose }: ShopMenuProps) => {
   const navigate = useNavigate();
-  const theme = useTheme();
+  const { categories } = useCategories();
 
-  const handleSelect = (slug: string | null) => {
-    navigate(slug ? `/shop?category=${slug}` : "/shop");
+  const items = [
+    ALL_PRODUCTS_ITEM,
+    ...buildCategoryItems(categories),
+    NEW_PRODUCTS_ITEM,
+  ];
+
+  const handleItemClick = (to: string) => {
+    navigate(to);
     onClose();
   };
 
@@ -37,18 +39,31 @@ export const ShopMenu = ({ open, onClose }: ShopMenuProps) => {
       anchor="bottom"
       open={open}
       onClose={onClose}
-      slotProps={{ paper: { sx: { bgcolor: theme.palette.background.paper } } }}
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: "#FAF7EA",
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+          },
+        },
+      }}
     >
-      <List>
-        {SHOP_CATEGORIES.map((category) => (
-          <ListItemButton
-            key={category.label}
-            onClick={() => handleSelect(category.slug)}
-          >
-            <ListItemText primary={category.label} />
-          </ListItemButton>
-        ))}
-      </List>
+      <Box sx={{ pb: 2 }} role="presentation">
+        <Typography variant="h4" sx={{ fontSize: "1.2rem", p: 2 }}>
+          Boutique
+        </Typography>
+        <List>
+          {items.map((item) => (
+            <ListItemButton
+              key={item.to}
+              onClick={() => handleItemClick(item.to)}
+            >
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
     </Drawer>
   );
 };

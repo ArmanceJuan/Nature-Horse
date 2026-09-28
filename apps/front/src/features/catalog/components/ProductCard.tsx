@@ -4,21 +4,16 @@ import type { Product } from "../types/product.types.js";
 
 interface ProductCardProps {
   product: Product;
-  fullWidth?: boolean;
   fixedWidth?: number;
 }
 
-export const ProductCard = ({
-  product,
-  fullWidth,
-  fixedWidth,
-}: ProductCardProps) => {
+export const ProductCard = ({ product, fixedWidth }: ProductCardProps) => {
   const navigate = useNavigate();
   const imageUrl = product.images[0]?.url ?? "";
 
   return (
     <Card
-      onClick={() => navigate(`/product/${product.id}`)}
+      onClick={() => navigate(`/product/${product.slug}`)}
       sx={{
         width: fixedWidth ? fixedWidth : "100%",
         flexShrink: 0,

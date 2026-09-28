@@ -1,6 +1,9 @@
 import request from "supertest";
 import { app } from "./app.js";
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe("GET /api/products", () => {
   it("should return 200 and an array of products", async () => {
     const response = await request(app).get("/api/products");
@@ -24,16 +27,25 @@ describe("GET /api/products", () => {
   });
 });
 
-describe("GET /api/products/:id", () => {
-  it("should return 200 and the product for a valid id", async () => {
+describe("GET /api/products/:idOrSlug", () => {
+  it("should return the product for a valid slug, with an internal UUID as id", async () => {
     const response = await request(app).get("/api/products/selle-monolith-1");
 
     expect(response.status).toBe(200);
-    expect(response.body.id).toBe("selle-monolith-1");
+    expect(response.body.slug).toBe("selle-monolith-1");
+    expect(response.body.id).toMatch(UUID_PATTERN);
     expect(response.body.variants.length).toBeGreaterThan(0);
   });
 
-  it("should return 404 for an unknown id", async () => {
+  it("should return the same product when requested by its id", async () => {
+    const bySlug = await request(app).get("/api/products/selle-monolith-1");
+    const byId = await request(app).get(`/api/products/${bySlug.body.id}`);
+
+    expect(byId.status).toBe(200);
+    expect(byId.body.slug).toBe("selle-monolith-1");
+  });
+
+  it("should return 404 for an unknown identifier", async () => {
     const response = await request(app).get("/api/products/unknown-id");
 
     expect(response.status).toBe(404);

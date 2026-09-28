@@ -2,6 +2,8 @@ import "dotenv/config";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { dbConfig } from "../src/config/prisma.js";
+import { hashPassword } from "../src/infrastructure/security/password.util.js";
+import { seedCategories } from "./seed-categories.js";
 
 const adapter = new PrismaMariaDb(dbConfig);
 const prisma = new PrismaClient({ adapter });
@@ -12,6 +14,7 @@ interface SeedVariant {
   stockByStore: Record<string, number>;
 }
 
+// "id" is the public slug of the product; the database generates the real UUID.
 interface SeedProduct {
   id: string;
   name: string;
@@ -918,9 +921,71 @@ const products: SeedProduct[] = [
   },
 ];
 
-async function main() {
-  console.log("🌱 Seeding attributes...");
+async function seedStores() {
+  const openingHours = [
+    "Lun : 14h-19h",
+    "Mar - Ven : 10h-12h30, 14h-19h",
+    "Sam : 10h-19h",
+  ];
 
+  await prisma.store.upsert({
+    where: { id: "isle-sur-la-sorgue" },
+    update: {},
+    create: {
+      id: "isle-sur-la-sorgue",
+      name: "Nature Horse - Isle sur la Sorgue",
+      address: "20 Av. Louis Boudin",
+      postalCode: "84800",
+      city: "Isle sur la Sorgue",
+      phone: "04 90 95 76 03",
+      openingHours,
+    },
+  });
+
+  await prisma.store.upsert({
+    where: { id: "saint-cannat" },
+    update: {},
+    create: {
+      id: "saint-cannat",
+      name: "Nature Horse - Saint-Cannat",
+      address: "290 Av. de l'Europe, La Pile ZA",
+      postalCode: "13760",
+      city: "Saint-Cannat",
+      phone: "04 42 59 28 15",
+      openingHours,
+    },
+  });
+
+  console.log("Stores seeded");
+}
+
+async function seedAdmin() {
+  const adminEmail = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    console.log(
+      "SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set: admin account skipped",
+    );
+    return;
+  }
+
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: "ADMIN" },
+    create: {
+      email: adminEmail,
+      password: await hashPassword(adminPassword),
+      firstName: "Admin",
+      lastName: "Nature Horse",
+      role: "ADMIN",
+    },
+  });
+
+  console.log("Admin account seeded");
+}
+
+async function seedProducts() {
   const tailleAttribute = await prisma.attribute.upsert({
     where: { name: "Taille" },
     update: {},
@@ -964,17 +1029,24 @@ async function main() {
     colorValueMap.set(color, value.id);
   }
 
-  console.log(
-    `✅ ${allSizes.length} size values, ${allColors.length} color values`,
-  );
-  console.log("🌱 Seeding products...");
+  let createdCount = 0;
+  let skippedCount = 0;
 
   for (const p of products) {
-    await prisma.product.deleteMany({ where: { id: p.id } });
+    const slug = p.id;
+
+    const existing = await prisma.product.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (existing) {
+      skippedCount += 1;
+      continue;
+    }
 
     const product = await prisma.product.create({
       data: {
-        id: p.id,
+        slug,
         name: p.name,
         description: p.description,
         price: p.price,
@@ -1017,14 +1089,25 @@ async function main() {
         });
       }
     }
+
+    createdCount += 1;
   }
 
-  console.log(`✅ ${products.length} products seeded with variants and stocks`);
+  console.log(
+    `Products seeded: ${createdCount} created, ${skippedCount} already present`,
+  );
+}
+
+async function main() {
+  await seedStores();
+  await seedAdmin();
+  await seedProducts();
+  await seedCategories(prisma);
 }
 
 main()
   .catch((error) => {
-    console.error("❌ Seed failed:", error);
+    console.error("Seed failed:", error);
     process.exit(1);
   })
   .finally(async () => {

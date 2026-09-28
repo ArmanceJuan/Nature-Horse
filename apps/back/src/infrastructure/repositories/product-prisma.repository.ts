@@ -8,8 +8,11 @@ import {
 import { ProductFilters } from "../../domain/entities/product-filters.entity.js";
 import { CreateProductInput } from "../../domain/entities/create-product-input.entity.js";
 import { UpdateProductInput } from "../../domain/entities/update-product-input.entity.js";
+import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import { slugify } from "../utils/slugify.util.js";
 
 const PRODUCT_INCLUDE = {
+  category: true,
   images: { orderBy: { position: "asc" as const } },
   variants: {
     include: {
@@ -41,11 +44,19 @@ const toDomainProduct = (
 
   return {
     id: raw.id,
+    slug: raw.slug,
     name: raw.name,
     description: raw.description,
     price: raw.price,
     collection: raw.collection,
     discipline: raw.discipline,
+    category: raw.category
+      ? {
+          id: raw.category.id,
+          slug: raw.category.slug,
+          name: raw.category.name,
+        }
+      : null,
     status: raw.status as ProductStatus,
     specs: raw.specs as string[],
     shippingInfo: raw.shippingInfo,
@@ -89,6 +100,24 @@ const getOrCreateAttributeValueId = async (
   return attributeValue.id;
 };
 
+const generateUniqueSlug = async (name: string): Promise<string> => {
+  const base = slugify(name);
+  let candidate = base;
+  let suffix = 2;
+
+  while (
+    await prisma.product.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    })
+  ) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+};
+
 export const productPrismaRepository: IProductRepository = {
   findAll: async (filters: ProductFilters) => {
     const page = filters.page && filters.page > 0 ? filters.page : 1;
@@ -102,6 +131,10 @@ export const productPrismaRepository: IProductRepository = {
         status: "ACTIVE",
         collection: filters.collection || undefined,
         discipline: filters.discipline || undefined,
+        category: filters.categorySlug
+          ? { slug: filters.categorySlug }
+          : undefined,
+        isNew: filters.isNew ? true : undefined,
         name: filters.search ? { contains: filters.search } : undefined,
         price: {
           gte: filters.minPrice ?? undefined,
@@ -132,9 +165,9 @@ export const productPrismaRepository: IProductRepository = {
     return result.slice(start, start + limit);
   },
 
-  findById: async (id: string) => {
-    const product = await prisma.product.findUnique({
-      where: { id },
+  findById: async (idOrSlug: string) => {
+    const product = await prisma.product.findFirst({
+      where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
       include: PRODUCT_INCLUDE,
     });
 
@@ -153,13 +186,28 @@ export const productPrismaRepository: IProductRepository = {
   },
 
   create: async (data: CreateProductInput) => {
+    if (data.categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+        select: { id: true },
+      });
+
+      if (!category) {
+        throw new AppError("Category not found", 400);
+      }
+    }
+
+    const slug = await generateUniqueSlug(data.name);
+
     const product = await prisma.product.create({
       data: {
+        slug,
         name: data.name,
         description: data.description,
         price: data.price,
         collection: data.collection,
         discipline: data.discipline,
+        categoryId: data.categoryId ?? null,
         specs: data.specs,
         shippingInfo: data.shippingInfo,
         isNew: data.isNew,

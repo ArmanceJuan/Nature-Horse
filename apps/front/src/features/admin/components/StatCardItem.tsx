@@ -1,4 +1,4 @@
-import { Paper, Typography, Stack, Box } from "@mui/material";
+import { Paper, Typography, Stack } from "@mui/material";
 import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";

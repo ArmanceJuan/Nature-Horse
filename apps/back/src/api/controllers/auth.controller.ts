@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
-import { registerUser, loginUser } from "../config/dependency-injection.js";
+import {
+  registerUser,
+  loginUser,
+  getCurrentUser,
+} from "../config/dependency-injection.js";
 import { AppError } from "../middlewares/error-handler.middleware.js";
 import { validateRegisterDTO, validateLoginDTO } from "../dto/user.dto.js";
+import { toPublicUser } from "../dto/public-user.dto.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -16,7 +21,7 @@ export const authController = {
 
     const newUser = await registerUser(req.body);
 
-    res.status(201).json(newUser);
+    res.status(201).json(toPublicUser(newUser));
   }),
 
   login: asyncHandler(async (req: Request, res: Response) => {
@@ -39,11 +44,18 @@ export const authController = {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json(result.user);
+    res.status(200).json(toPublicUser(result.user));
   }),
 
   me: asyncHandler(async (req: Request, res: Response) => {
-    res.status(200).json({ userId: req.user?.userId, role: req.user?.role });
+    if (!req.user) {
+      throw new AppError("Authentication required", 401);
+    }
+
+    const user = await getCurrentUser(req.user.userId);
+
+    res.set("Cache-Control", "no-store");
+    res.status(200).json(toPublicUser(user));
   }),
 
   logout: asyncHandler(async (req: Request, res: Response) => {

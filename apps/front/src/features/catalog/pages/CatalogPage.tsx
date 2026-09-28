@@ -17,10 +17,9 @@ import { productsApi } from "../api/productsApi.js";
 import type { Product } from "../types/product.types.js";
 import { ProductCard } from "../components/ProductCard.js";
 import { SearchBar } from "../../../shared/components/layout/SearchBar.js";
-import {
-  CatalogFilters,
-  type FiltersState,
-} from "../components/CatalogFilters.js";
+import { CatalogFilters } from "../components/CatalogFilters.js";
+import type { FiltersState } from "../components/CatalogFilters.js";
+import { useCategories } from "../hooks/useCategories.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
 
 type ViewMode = "grid" | "list";
@@ -35,13 +34,23 @@ const EMPTY_FILTERS: FiltersState = {
 export const CatalogPage = () => {
   const [searchParams] = useSearchParams();
   const collectionFilter = searchParams.get("collection");
+  const categoryFilter = searchParams.get("category");
+  const isNewFilter = searchParams.get("new") === "true";
   const searchQuery = searchParams.get("search");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { categories } = useCategories();
   const isDesktop = useIsDesktop();
+
+  const activeCategory = categories.find(
+    (category) => category.slug === categoryFilter,
+  );
+  const pageTitle = isNewFilter
+    ? "Nouveautés"
+    : (activeCategory?.name ?? "Boutique");
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -49,6 +58,8 @@ export const CatalogPage = () => {
       try {
         const result: Product[] = await productsApi.getAll({
           collection: collectionFilter ?? undefined,
+          category: categoryFilter ?? undefined,
+          isNew: isNewFilter || undefined,
           discipline: filters.disciplines[0] ?? undefined,
           search: searchQuery ?? undefined,
           minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
@@ -65,7 +76,7 @@ export const CatalogPage = () => {
     };
 
     loadProducts();
-  }, [collectionFilter, searchQuery, filters]);
+  }, [collectionFilter, categoryFilter, isNewFilter, searchQuery, filters]);
 
   const availableSizes = [
     ...new Set(
@@ -106,7 +117,7 @@ export const CatalogPage = () => {
       )}
 
       <Typography variant="h4" sx={{ fontSize: "1.5rem", mb: 0.5 }}>
-        Boutique
+        {pageTitle}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Découvrez notre collection raffinée d'équipements pour le cavalier
@@ -173,12 +184,14 @@ export const CatalogPage = () => {
 
             <Stack direction="row">
               <IconButton
+                aria-label="Affichage en liste"
                 onClick={() => setViewMode("list")}
                 color={viewMode === "list" ? "primary" : "default"}
               >
                 <ViewAgendaIcon />
               </IconButton>
               <IconButton
+                aria-label="Affichage en grille"
                 onClick={() => setViewMode("grid")}
                 color={viewMode === "grid" ? "primary" : "default"}
               >
@@ -205,10 +218,7 @@ export const CatalogPage = () => {
                     maxWidth: viewMode === "grid" ? 240 : "100%",
                   }}
                 >
-                  <ProductCard
-                    product={product}
-                    fullWidth={viewMode === "list"}
-                  />
+                  <ProductCard product={product} />
                 </Box>
               ))}
             </Box>

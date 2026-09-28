@@ -1,3 +1,18 @@
+export type Discipline = "dressage" | "obstacle" | "complet" | "loisir";
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  position: number;
+}
+
+export interface ProductCategory {
+  id: string;
+  slug: string;
+  name: string;
+}
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -18,11 +33,14 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
+  slug: string;
   name: string;
   description: string;
   price: number;
   collection: string;
   discipline: string;
+  category: ProductCategory | null;
+  status: "ACTIVE" | "ARCHIVED";
   specs: string[];
   shippingInfo: string;
   isNew: boolean;

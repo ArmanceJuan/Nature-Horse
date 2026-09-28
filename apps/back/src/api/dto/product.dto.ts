@@ -42,6 +42,13 @@ export const validateCreateProductDTO = (data: unknown): ValidationResult => {
   }
 
   if (
+    typeof body.categoryId !== "string" ||
+    body.categoryId.trim().length === 0
+  ) {
+    errors.push("Category is required");
+  }
+
+  if (
     !Array.isArray(body.specs) ||
     !body.specs.every((s) => typeof s === "string")
   ) {

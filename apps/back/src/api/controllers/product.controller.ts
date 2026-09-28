@@ -9,12 +9,12 @@ import {
   reactivateProduct,
   adjustStock,
 } from "../config/dependency-injection.js";
+import { asyncHandler } from "../middlewares/async-handler.middleware.js";
 import { AppError } from "../middlewares/error-handler.middleware.js";
 import {
   validateCreateProductDTO,
   validateUpdateProductDTO,
 } from "../dto/product.dto.js";
-import { asyncHandler } from "../middlewares/async-handler.middleware.js";
 
 const parsePrice = (value: unknown): number | undefined => {
   if (typeof value !== "string") return undefined;
@@ -33,6 +33,8 @@ export const productController = {
     const {
       collection,
       discipline,
+      category,
+      isNew,
       search,
       minPrice,
       maxPrice,
@@ -44,6 +46,9 @@ export const productController = {
     const products = await getAllProducts({
       collection: typeof collection === "string" ? collection : undefined,
       discipline: typeof discipline === "string" ? discipline : undefined,
+      categorySlug:
+        typeof category === "string" && category !== "" ? category : undefined,
+      isNew: isNew === "true" ? true : undefined,
       search: typeof search === "string" ? search : undefined,
       minPrice: parsePrice(minPrice),
       maxPrice: parsePrice(maxPrice),

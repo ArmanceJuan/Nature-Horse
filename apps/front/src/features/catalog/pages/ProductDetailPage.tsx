@@ -24,11 +24,6 @@ import { useStore } from "../../stores/context/StoreContext.js";
 import { useCart } from "../../cart/context/CartContext.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
 
-const COLLECTION_LABELS: Record<string, string> = {
-  "textile-performance": "Cavalier",
-  "haute-sellerie": "Cheval",
-};
-
 const getAttributeValue = (
   variant: Product["variants"][number],
   attributeName: string,
@@ -83,6 +78,8 @@ export const ProductDetailPage = () => {
       </Box>
     );
   }
+
+  const category = product.category;
 
   const availableSizes = [
     ...new Set(
@@ -144,15 +141,8 @@ export const ProductDetailPage = () => {
   };
 
   const handleIncrease = () => {
-    if (!matchingVariant) return;
-    updateQuantity(
-      product.id,
-      matchingVariant.attributeValues.find((a) => a.attributeName === "Taille")
-        ?.value ?? "",
-      matchingVariant.attributeValues.find((a) => a.attributeName === "Couleur")
-        ?.value ?? "",
-      quantityInCart + 1,
-    );
+    if (!matchingVariant || !selectedSize || !selectedColor) return;
+    updateQuantity(product.id, selectedSize, selectedColor, quantityInCart + 1);
   };
 
   const handleDecrease = () => {
@@ -181,15 +171,17 @@ export const ProductDetailPage = () => {
         >
           Accueil
         </Link>
-        <Link
-          component="button"
-          variant="body2"
-          onClick={() => navigate(`/shop?collection=${product.collection}`)}
-          underline="hover"
-          color="text.secondary"
-        >
-          {COLLECTION_LABELS[product.collection] ?? product.collection}
-        </Link>
+        {category && (
+          <Link
+            component="button"
+            variant="body2"
+            onClick={() => navigate(`/shop?category=${category.slug}`)}
+            underline="hover"
+            color="text.secondary"
+          >
+            {category.name}
+          </Link>
+        )}
         <Typography variant="body2" color="text.primary">
           {product.name}
         </Typography>
@@ -222,6 +214,7 @@ export const ProductDetailPage = () => {
                   key={img.id}
                   component="img"
                   src={img.url}
+                  alt={img.altText ?? product.name}
                   onClick={() => setSelectedImageIndex(index)}
                   sx={{
                     width: 72,
@@ -350,13 +343,18 @@ export const ProductDetailPage = () => {
                 mb: 3,
               }}
             >
-              <IconButton onClick={handleDecrease} color="primary">
+              <IconButton
+                aria-label="Retirer un exemplaire"
+                onClick={handleDecrease}
+                color="primary"
+              >
                 <RemoveIcon />
               </IconButton>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
                 {quantityInCart}
               </Typography>
               <IconButton
+                aria-label="Ajouter un exemplaire"
                 onClick={handleIncrease}
                 color="primary"
                 disabled={quantityInCart >= (stockInCurrentStore ?? 0)}

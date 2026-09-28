@@ -1,5 +1,7 @@
 import { Box, Typography, Stack, Button, Paper } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import DownloadIcon from "@mui/icons-material/Download";
+import AddIcon from "@mui/icons-material/Add";
 import {
   mockStats,
   mockRecentOrders,
@@ -12,6 +14,7 @@ import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
 
 export const AdminPage = () => {
   const isDesktop = useIsDesktop();
+  const navigate = useNavigate();
 
   return (
     <Box sx={{ p: 2 }}>
@@ -33,13 +36,23 @@ export const AdminPage = () => {
             Résumé des performances de la boutique.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<DownloadIcon />}
-          sx={{ textTransform: "none" }}
-        >
-          Rapport
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            sx={{ textTransform: "none" }}
+            onClick={() => navigate("/admin/products/new")}
+          >
+            Ajouter un produit
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            sx={{ textTransform: "none" }}
+          >
+            Rapport
+          </Button>
+        </Stack>
       </Stack>
 
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 3 }}>
@@ -77,6 +90,13 @@ export const AdminPage = () => {
           {mockStockAlerts.map((alert) => (
             <StockAlertItem key={alert.category} alert={alert} />
           ))}
+          <Button
+            variant="outlined"
+            fullWidth
+            sx={{ textTransform: "none", mt: 1 }}
+          >
+            Gérer l'inventaire
+          </Button>
         </Paper>
       </Box>
     </Box>

@@ -1,5 +1,11 @@
 export type ProductStatus = "ACTIVE" | "ARCHIVED";
 
+export interface ProductCategory {
+  id: string;
+  slug: string;
+  name: string;
+}
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -20,11 +26,13 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
+  slug: string;
   name: string;
   description: string;
   price: number;
   collection: string;
   discipline: string;
+  category?: ProductCategory | null;
   status: ProductStatus;
   specs: string[];
   shippingInfo: string;

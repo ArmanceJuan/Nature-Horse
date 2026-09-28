@@ -13,9 +13,16 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PlaceIcon from "@mui/icons-material/Place";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
+import PersonIcon from "@mui/icons-material/Person";
 import { useCart } from "../../../features/cart/context/CartContext.js";
 import { useStore } from "../../../features/stores/context/StoreContext.js";
-import { SHOP_CATEGORIES } from "../../../features/catalog/data/categories.js";
+import { useAuth } from "../../../features/auth/context/AuthContext.js";
+import { useCategories } from "../../../features/catalog/hooks/useCategories.js";
+import {
+  NEW_PRODUCTS_ITEM,
+  buildCategoryItems,
+  isNavItemActive,
+} from "../../../features/catalog/utils/shop-nav.js";
 import { SearchBar } from "./SearchBar.js";
 
 export const TopNav = () => {
@@ -23,8 +30,11 @@ export const TopNav = () => {
   const location = useLocation();
   const { totalItems } = useCart();
   const { selectedStore, openSelector } = useStore();
+  const { user } = useAuth();
+  const { categories } = useCategories();
 
-  const navCategories = SHOP_CATEGORIES.filter((c) => c.slug !== null);
+  const navItems = [...buildCategoryItems(categories), NEW_PRODUCTS_ITEM];
+  const isAdmin = user?.role === "ADMIN";
 
   return (
     <AppBar
@@ -55,16 +65,32 @@ export const TopNav = () => {
           >
             {selectedStore?.city}
           </Button>
-          <IconButton onClick={() => navigate("/cart")}>
+          {isAdmin && (
+            <Button
+              size="small"
+              onClick={() => navigate("/admin")}
+              sx={{
+                textTransform: "none",
+                color: "text.primary",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Administration
+            </Button>
+          )}
+          <IconButton aria-label="Panier" onClick={() => navigate("/cart")}>
             <Badge badgeContent={totalItems} color="primary">
               <ShoppingCartIcon />
             </Badge>
           </IconButton>
-          <IconButton>
+          <IconButton aria-label="Notifications">
             <NotificationsNoneIcon />
           </IconButton>
-          <IconButton onClick={() => navigate("/login")}>
-            <PersonOutlinedIcon />
+          <IconButton
+            aria-label={user ? "Mon compte" : "Se connecter"}
+            onClick={() => navigate(user ? "/account" : "/login")}
+          >
+            {user ? <PersonIcon /> : <PersonOutlinedIcon />}
           </IconButton>
         </Stack>
       </Toolbar>
@@ -81,25 +107,22 @@ export const TopNav = () => {
           pb: 1.5,
         }}
       >
-        {navCategories.map((category) => (
+        {navItems.map((item) => (
           <Button
-            key={category.slug}
+            key={item.to}
             disableRipple
             sx={{
               color: "text.primary",
               textTransform: "none",
               whiteSpace: "nowrap",
               fontSize: "1rem",
-              fontWeight: location.search.includes(`category=${category.slug}`)
-                ? 700
-                : 400,
+              fontWeight: isNavItemActive(item, location.search) ? 700 : 400,
               minWidth: 0,
               p: 0,
-              "&:first-of-type": { ml: 0 },
             }}
-            onClick={() => navigate(`/shop?category=${category.slug}`)}
+            onClick={() => navigate(item.to)}
           >
-            {category.label}
+            {item.label}
           </Button>
         ))}
       </Stack>

@@ -13,6 +13,7 @@ export const app = express();
 
 import rateLimit from "express-rate-limit";
 import orderRoutes from "./routes/order.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
 
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -45,5 +46,6 @@ app.use("/api/otp", otpRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/categories", categoryRoutes);
 
 app.use(errorHandler);
