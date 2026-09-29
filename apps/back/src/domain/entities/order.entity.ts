@@ -1,12 +1,14 @@
 import type { Role } from "./user.entity.js";
 
 export type OrderStatus =
+  | "AWAITING_PAYMENT"
   | "PENDING"
   | "READY_FOR_PICKUP"
   | "PICKED_UP"
   | "CANCELLED";
 
 export const ORDER_STATUSES: OrderStatus[] = [
+  "AWAITING_PAYMENT",
   "PENDING",
   "READY_FOR_PICKUP",
   "PICKED_UP",
@@ -64,6 +66,7 @@ export interface OrderProps {
 
 export class Order {
   private static readonly TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+    AWAITING_PAYMENT: ["PENDING", "CANCELLED"],
     PENDING: ["READY_FOR_PICKUP"],
     READY_FOR_PICKUP: ["PICKED_UP"],
     PICKED_UP: [],

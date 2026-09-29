@@ -25,8 +25,12 @@ export interface IOrderRepository {
   create(data: NewOrderData): Promise<Order>;
   findById(id: string): Promise<Order | null>;
   findByTrackingToken(token: TrackingToken): Promise<Order | null>;
+  findByStripeSessionId(sessionId: string): Promise<Order | null>;
   findByUserId(userId: string): Promise<Order[]>;
   findAll(): Promise<Order[]>;
+  attachPaymentSession(orderId: string, sessionId: string): Promise<void>;
+  confirmPayment(id: string): Promise<Order>;
+  expire(id: string): Promise<Order>;
   updateStatus(id: string, from: OrderStatus, to: OrderStatus): Promise<Order>;
   cancel(id: string): Promise<Order>;
 }

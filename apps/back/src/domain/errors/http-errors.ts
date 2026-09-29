@@ -1,5 +1,7 @@
 import { AppError } from "./app.error.js";
 
+export { AppError };
+
 export class ValidationError extends AppError {
   constructor(message: string) {
     super(message, 400);
@@ -29,5 +31,11 @@ export class NotFoundError extends AppError {
 export class ConflictError extends AppError {
   constructor(message: string) {
     super(message, 409);
+  }
+}
+
+export class PaymentError extends AppError {
+  constructor(message: string = "The payment provider is unavailable") {
+    super(message, 502);
   }
 }

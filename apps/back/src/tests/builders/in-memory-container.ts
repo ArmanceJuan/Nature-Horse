@@ -23,6 +23,8 @@ import { GetOrderByTrackingTokenUseCase } from "../../application/usecases/get-o
 import { UpdateOrderStatusUseCase } from "../../application/usecases/update-order-status.usecase.js";
 import { CancelOrderUseCase } from "../../application/usecases/cancel-order.usecase.js";
 import { CancelOrderByTrackingTokenUseCase } from "../../application/usecases/cancel-order-by-tracking-token.usecase.js";
+import { ConfirmOrderPaymentUseCase } from "../../application/usecases/confirm-order-payment.usecase.js";
+import { ExpireOrderPaymentUseCase } from "../../application/usecases/expire-order-payment.usecase.js";
 import type { Category } from "../../domain/entities/category.entity.js";
 import type { Product } from "../../domain/entities/product.entity.js";
 import type { Store } from "../../domain/entities/store.entity.js";
@@ -35,6 +37,7 @@ import { UserController } from "../../api/controllers/user.controller.js";
 import { AuthController } from "../../api/controllers/auth.controller.js";
 import { OtpController } from "../../api/controllers/otp.controller.js";
 import { OrderController } from "../../api/controllers/order.controller.js";
+import { PaymentWebhookController } from "../../api/controllers/payment-webhook.controller.js";
 import { CategoryRoutes } from "../../api/routes/category.routes.js";
 import { StoreRoutes } from "../../api/routes/store.routes.js";
 import { ProductRoutes } from "../../api/routes/product.routes.js";
@@ -42,6 +45,7 @@ import { UserRoutes } from "../../api/routes/user.routes.js";
 import { AuthRoutes } from "../../api/routes/auth.routes.js";
 import { OtpRoutes } from "../../api/routes/otp.routes.js";
 import { OrderRoutes } from "../../api/routes/order.routes.js";
+import { PaymentRoutes } from "../../api/routes/payment.routes.js";
 import { SessionCookie } from "../../api/http/session-cookie.js";
 import { CatalogQueryParser } from "../../api/validation/catalog-query.parser.js";
 import { CreateProductValidator } from "../../api/validation/create-product.validator.js";
@@ -55,6 +59,7 @@ import { UpdateOrderStatusValidator } from "../../api/validation/update-order-st
 import { FakeGuards } from "../fakes/fake-guards.js";
 import { FakeBackupCodeGenerator } from "../fakes/fake-backup-code.generator.js";
 import { FakePasswordHasher } from "../fakes/fake-password-hasher.js";
+import { FakePaymentService } from "../fakes/fake-payment.service.js";
 import { FakeQrCodeGenerator } from "../fakes/fake-qr-code.generator.js";
 import { FakeTokenService } from "../fakes/fake-token.service.js";
 import { FakeTotpService } from "../fakes/fake-totp.service.js";
@@ -81,12 +86,13 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
   const storeRepository = new InMemoryStoreRepository(seed.stores ?? []);
   const productRepository = new InMemoryProductRepository(seed.products ?? []);
   const userRepository = new InMemoryUserRepository(seed.users ?? []);
+  const twoFactorRepository = new InMemoryTwoFactorRepository();
+  const paymentService = new FakePaymentService();
   const orderRepository = new InMemoryOrderRepository(
     [],
     {},
     productRepository,
   );
-  const twoFactorRepository = new InMemoryTwoFactorRepository();
 
   const passwordHasher = new FakePasswordHasher();
   const tokenService = new FakeTokenService();
@@ -175,6 +181,8 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
       userRepository,
       trackingTokenGenerator,
       clock,
+      paymentService,
+      "http://localhost:5173",
     ),
     getMyOrders: new GetMyOrdersUseCase(orderRepository),
     getAllOrders: new GetAllOrdersUseCase(orderRepository),
@@ -190,6 +198,12 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
     updateOrderStatusValidator: new UpdateOrderStatusValidator(),
   });
 
+  const paymentWebhookController = new PaymentWebhookController(
+    paymentService,
+    new ConfirmOrderPaymentUseCase(orderRepository),
+    new ExpireOrderPaymentUseCase(orderRepository),
+  );
+
   return {
     guards,
     productRepository,
@@ -200,5 +214,6 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
     authRoutes: new AuthRoutes(authController, guards),
     otpRoutes: new OtpRoutes(otpController, guards),
     orderRoutes: new OrderRoutes(orderController, guards),
+    paymentRoutes: new PaymentRoutes(paymentWebhookController),
   } as Container;
 };

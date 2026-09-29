@@ -24,6 +24,12 @@ export class UpdateOrderStatusUseCase {
       throw new NotFoundError("Order not found");
     }
 
+    if (order.status === "AWAITING_PAYMENT") {
+      throw new ConflictError(
+        "Cannot change the status of an order that is still awaiting payment",
+      );
+    }
+
     if (!order.canTransitionTo(target)) {
       throw new ConflictError(
         `Cannot move an order from ${order.status} to ${target}`,

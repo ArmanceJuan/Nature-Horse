@@ -14,6 +14,7 @@ import type { InMemoryProductRepository } from "./in-memory-product.repository.j
 export class InMemoryOrderRepository implements IOrderRepository {
   private orders: Order[];
   private readonly tokens = new Map<string, string>();
+  private readonly sessions = new Map<string, string>();
   private readonly productRepository: InMemoryProductRepository | null;
   private sequence = 0;
 
@@ -24,10 +25,14 @@ export class InMemoryOrderRepository implements IOrderRepository {
     orders: Order[] = [],
     tokens: Record<string, string> = {},
     productRepository: InMemoryProductRepository | null = null,
+    sessions: Record<string, string> = {},
   ) {
     this.orders = [...orders];
     Object.entries(tokens).forEach(([token, orderId]) =>
       this.tokens.set(token, orderId),
+    );
+    Object.entries(sessions).forEach(([sessionId, orderId]) =>
+      this.sessions.set(sessionId, orderId),
     );
     this.productRepository = productRepository;
   }
@@ -56,7 +61,7 @@ export class InMemoryOrderRepository implements IOrderRepository {
       customerFirstName: data.customerFirstName,
       customerLastName: data.customerLastName,
       customerPhone: data.customerPhone,
-      status: "PENDING",
+      status: "AWAITING_PAYMENT",
       totalPrice: data.totalPrice,
       pickupReadyAt: data.pickupReadyAt,
       items: data.items.map(
@@ -82,12 +87,64 @@ export class InMemoryOrderRepository implements IOrderRepository {
     return orderId ? this.findById(orderId) : null;
   }
 
+  async findByStripeSessionId(sessionId: string): Promise<Order | null> {
+    const orderId = this.sessions.get(sessionId);
+
+    return orderId ? this.findById(orderId) : null;
+  }
+
   async findByUserId(userId: string): Promise<Order[]> {
     return this.orders.filter((order) => order.userId === userId);
   }
 
   async findAll(): Promise<Order[]> {
     return [...this.orders];
+  }
+
+  async attachPaymentSession(
+    orderId: string,
+    sessionId: string,
+  ): Promise<void> {
+    this.sessions.set(sessionId, orderId);
+  }
+
+  async confirmPayment(id: string): Promise<Order> {
+    const order = this.orders.find((candidate) => candidate.id === id);
+
+    if (!order || order.status !== "AWAITING_PAYMENT") {
+      throw new ConflictError("The order is not awaiting payment");
+    }
+
+    const updated = order.withStatus("PENDING");
+
+    this.replace(updated);
+
+    return updated;
+  }
+
+  async expire(id: string): Promise<Order> {
+    const order = this.orders.find((candidate) => candidate.id === id);
+
+    if (!order || order.status !== "AWAITING_PAYMENT") {
+      throw new ConflictError("The order is not awaiting payment");
+    }
+
+    if (this.productRepository) {
+      for (const item of order.items) {
+        await this.incrementStock(
+          item.productVariantId,
+          order.storeId,
+          item.quantity,
+        );
+      }
+    }
+
+    const updated = order.withStatus("CANCELLED");
+
+    this.replace(updated);
+    this.cancelledIds.push(id);
+
+    return updated;
   }
 
   async updateStatus(

@@ -25,6 +25,13 @@ export const createApp = (container: Container) => {
       credentials: true,
     }),
   );
+
+  app.use(
+    "/api/payments/webhook",
+    express.raw({ type: "application/json" }),
+    container.paymentRoutes.webhookRouter,
+  );
+
   app.use(express.json());
   app.use(cookieParser());
   app.use(globalLimiter);

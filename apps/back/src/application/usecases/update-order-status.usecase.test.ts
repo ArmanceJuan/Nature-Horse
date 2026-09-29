@@ -74,4 +74,11 @@ describe("UpdateOrderStatusUseCase", () => {
       useCase.execute("ghost", "READY_FOR_PICKUP"),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
+  it("refuses to manually change the status of an order awaiting payment", async () => {
+    const { useCase } = build("AWAITING_PAYMENT");
+
+    await expect(useCase.execute("o1", "PENDING")).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
 });

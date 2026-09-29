@@ -14,6 +14,7 @@ enum Role {
 }
 
 enum OrderStatus {
+  AWAITING_PAYMENT
   PENDING
   READY_FOR_PICKUP
   PICKED_UP
@@ -199,7 +200,8 @@ model Order {
   customerLastName  String
   customerPhone     String?
   trackingToken     String      @unique
-  status            OrderStatus @default(PENDING)
+  stripeSessionId   String?     @unique
+  status            OrderStatus @default(AWAITING_PAYMENT)
   totalPrice        Float
   pickupReadyAt     DateTime
   createdAt         DateTime    @default(now())

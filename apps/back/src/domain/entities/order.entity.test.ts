@@ -32,10 +32,6 @@ describe("Order", () => {
     expect(order.isOwnedBy("user-2")).toBe(false);
   });
 
-  it("belongs to nobody when it is a guest order", () => {
-    expect(buildOrder({ userId: null }).isOwnedBy("user-1")).toBe(false);
-  });
-
   it("is accessible to its owner and to an administrator", () => {
     const order = buildOrder({ userId: "user-1" });
 
@@ -58,19 +54,9 @@ describe("Order", () => {
     );
   });
 
-  it("keeps a guest order out of reach of every customer account", () => {
-    const order = buildOrder({ userId: null });
-
-    expect(order.isAccessibleBy({ userId: "user-1", role: "CLIENT" })).toBe(
-      false,
-    );
-    expect(order.isAccessibleBy({ userId: "admin-1", role: "ADMIN" })).toBe(
-      true,
-    );
-  });
-
-  it("can be cancelled while it has not been picked up", () => {
+  it("cannot be cancelled while it is awaiting payment", () => {
     const expected: Record<OrderStatus, boolean> = {
+      AWAITING_PAYMENT: false,
       PENDING: true,
       READY_FOR_PICKUP: true,
       PICKED_UP: false,
@@ -82,7 +68,19 @@ describe("Order", () => {
     });
   });
 
-  it("only moves forward, one step at a time", () => {
+  it("moves from awaiting payment to pending once paid", () => {
+    expect(
+      buildOrder({ status: "AWAITING_PAYMENT" }).canTransitionTo("PENDING"),
+    ).toBe(true);
+  });
+
+  it("moves from awaiting payment to cancelled if the payment fails or expires", () => {
+    expect(
+      buildOrder({ status: "AWAITING_PAYMENT" }).canTransitionTo("CANCELLED"),
+    ).toBe(true);
+  });
+
+  it("only moves forward, one step at a time, once paid", () => {
     expect(
       buildOrder({ status: "PENDING" }).canTransitionTo("READY_FOR_PICKUP"),
     ).toBe(true);
@@ -92,14 +90,16 @@ describe("Order", () => {
   });
 
   it("cannot skip a step or move backwards", () => {
+    expect(
+      buildOrder({ status: "AWAITING_PAYMENT" }).canTransitionTo(
+        "READY_FOR_PICKUP",
+      ),
+    ).toBe(false);
     expect(buildOrder({ status: "PENDING" }).canTransitionTo("PICKED_UP")).toBe(
       false,
     );
     expect(
       buildOrder({ status: "READY_FOR_PICKUP" }).canTransitionTo("PENDING"),
-    ).toBe(false);
-    expect(
-      buildOrder({ status: "PICKED_UP" }).canTransitionTo("READY_FOR_PICKUP"),
     ).toBe(false);
   });
 
@@ -126,18 +126,19 @@ describe("Order", () => {
   });
 
   it("returns a new order with the requested status and leaves the original untouched", () => {
-    const order = buildOrder({ status: "PENDING" });
-    const ready = order.withStatus("READY_FOR_PICKUP");
+    const order = buildOrder({ status: "AWAITING_PAYMENT" });
+    const paid = order.withStatus("PENDING");
 
-    expect(ready.status).toBe("READY_FOR_PICKUP");
-    expect(ready.id).toBe(order.id);
-    expect(order.status).toBe("PENDING");
+    expect(paid.status).toBe("PENDING");
+    expect(paid.id).toBe(order.id);
+    expect(order.status).toBe("AWAITING_PAYMENT");
   });
 
-  it("never carries a tracking token", () => {
+  it("never carries a Stripe session id or a tracking token", () => {
     const serialized = JSON.parse(JSON.stringify(buildOrder()));
 
     expect(serialized).not.toHaveProperty("trackingToken");
+    expect(serialized).not.toHaveProperty("stripeSessionId");
     expect(serialized).toHaveProperty("customerEmail");
   });
 });

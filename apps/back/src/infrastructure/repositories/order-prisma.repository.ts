@@ -113,6 +113,15 @@ export class OrderPrismaRepository implements IOrderRepository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findByStripeSessionId(sessionId: string): Promise<Order | null> {
+    const row = await this.database.order.findUnique({
+      where: { stripeSessionId: sessionId },
+      include: ORDER_INCLUDE,
+    });
+
+    return row ? this.toDomain(row) : null;
+  }
+
   async findByUserId(userId: string): Promise<Order[]> {
     const rows = await this.database.order.findMany({
       where: { userId },
@@ -130,6 +139,42 @@ export class OrderPrismaRepository implements IOrderRepository {
     });
 
     return rows.map((row) => this.toDomain(row));
+  }
+
+  async attachPaymentSession(
+    orderId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await this.database.order.update({
+      where: { id: orderId },
+      data: { stripeSessionId: sessionId },
+    });
+  }
+
+  async confirmPayment(id: string): Promise<Order> {
+    const transition = await this.database.order.updateMany({
+      where: { id, status: "AWAITING_PAYMENT" },
+      data: { status: "PENDING" },
+    });
+
+    if (transition.count === 0) {
+      throw new ConflictError("The order is not awaiting payment");
+    }
+
+    const row = await this.database.order.findUniqueOrThrow({
+      where: { id },
+      include: ORDER_INCLUDE,
+    });
+
+    return this.toDomain(row);
+  }
+
+  async expire(id: string): Promise<Order> {
+    return this.transitionWithStockRestore(
+      id,
+      ["AWAITING_PAYMENT"],
+      "CANCELLED",
+    );
   }
 
   async updateStatus(
@@ -157,6 +202,18 @@ export class OrderPrismaRepository implements IOrderRepository {
   }
 
   async cancel(id: string): Promise<Order> {
+    return this.transitionWithStockRestore(
+      id,
+      ["PENDING", "READY_FOR_PICKUP"],
+      "CANCELLED",
+    );
+  }
+
+  private async transitionWithStockRestore(
+    id: string,
+    allowedFrom: OrderStatus[],
+    to: OrderStatus,
+  ): Promise<Order> {
     const row = await this.database.$transaction(async (tx) => {
       const existing = await tx.order.findUnique({
         where: { id },
@@ -168,13 +225,13 @@ export class OrderPrismaRepository implements IOrderRepository {
       }
 
       const transition = await tx.order.updateMany({
-        where: { id, status: { in: ["PENDING", "READY_FOR_PICKUP"] } },
-        data: { status: "CANCELLED" },
+        where: { id, status: { in: allowedFrom } },
+        data: { status: to },
       });
 
       if (transition.count === 0) {
         throw new ConflictError(
-          `Cannot cancel an order with status ${existing.status}`,
+          `Cannot move an order from ${existing.status} to ${to}`,
         );
       }
 

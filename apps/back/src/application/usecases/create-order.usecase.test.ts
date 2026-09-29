@@ -19,6 +19,7 @@ import { InMemoryOrderRepository } from "../../tests/fakes/in-memory-order.repos
 import { InMemoryProductRepository } from "../../tests/fakes/in-memory-product.repository.js";
 import { InMemoryStoreRepository } from "../../tests/fakes/in-memory-store.repository.js";
 import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
+import { FakePaymentService } from "../../tests/fakes/fake-payment.service.js";
 
 const NOW = new Date("2026-10-01T10:00:00.000Z");
 
@@ -48,18 +49,24 @@ const defaultUsers = (): User[] => [
 ];
 
 const build = (options: { products?: Product[]; users?: User[] } = {}) => {
-  const orders = new InMemoryOrderRepository();
+  const productRepository = new InMemoryProductRepository(
+    options.products ?? defaultProducts(),
+  );
+  const orders = new InMemoryOrderRepository([], {}, productRepository);
+  const payments = new FakePaymentService();
 
   const useCase = new CreateOrderUseCase(
     orders,
-    new InMemoryProductRepository(options.products ?? defaultProducts()),
+    productRepository,
     new InMemoryStoreRepository([buildStore({ id: "store-1" })]),
     new InMemoryUserRepository(options.users ?? defaultUsers()),
     new FakeTrackingTokenGenerator(),
     new FixedClock(NOW),
+    payments,
+    "http://localhost:5173",
   );
 
-  return { orders, useCase };
+  return { orders, payments, useCase };
 };
 
 const guest = {
@@ -341,5 +348,45 @@ describe("CreateOrderUseCase", () => {
       }),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(orders.createdData).toEqual([]);
+  });
+  it("returns a Stripe checkout URL and stores the session id on the order", async () => {
+    const { orders, payments, useCase } = build();
+
+    const result = await useCase.execute({
+      userId: "user-1",
+      storeId: "store-1",
+      items: [{ productVariantId: "v1", quantity: 1 }],
+    });
+
+    expect(result.checkoutUrl).toBe("https://stripe.test/session-1");
+    expect(payments.createdSessions[0].orderId).toBe(result.order.id);
+    expect(await orders.findByStripeSessionId("session-1")).not.toBeNull();
+  });
+
+  it("creates the order awaiting payment, not confirmed yet", async () => {
+    const { useCase } = build();
+
+    const result = await useCase.execute({
+      userId: "user-1",
+      storeId: "store-1",
+      items: [{ productVariantId: "v1", quantity: 1 }],
+    });
+
+    expect(result.order.status).toBe("AWAITING_PAYMENT");
+  });
+
+  it("cancels the order and restores the stock when the payment provider fails", async () => {
+    const { orders, payments, useCase } = build();
+    payments.shouldFail = true;
+
+    await expect(
+      useCase.execute({
+        userId: "user-1",
+        storeId: "store-1",
+        items: [{ productVariantId: "v1", quantity: 1 }],
+      }),
+    ).rejects.toMatchObject({ statusCode: 502 });
+
+    expect(orders.cancelledIds).toHaveLength(1);
   });
 });

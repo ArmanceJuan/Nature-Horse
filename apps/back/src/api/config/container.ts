@@ -3,10 +3,12 @@ import { AdjustStockUseCase } from "../../application/usecases/adjust-stock.usec
 import { ArchiveProductUseCase } from "../../application/usecases/archive-product.usecase.js";
 import { CancelOrderByTrackingTokenUseCase } from "../../application/usecases/cancel-order-by-tracking-token.usecase.js";
 import { CancelOrderUseCase } from "../../application/usecases/cancel-order.usecase.js";
+import { ConfirmOrderPaymentUseCase } from "../../application/usecases/confirm-order-payment.usecase.js";
 import { CreateOrderUseCase } from "../../application/usecases/create-order.usecase.js";
 import { CreateProductUseCase } from "../../application/usecases/create-product.usecase.js";
 import { DeleteProductUseCase } from "../../application/usecases/delete-product.usecase.js";
 import { EnableOtpUseCase } from "../../application/usecases/enable-otp.usecase.js";
+import { ExpireOrderPaymentUseCase } from "../../application/usecases/expire-order-payment.usecase.js";
 import { GenerateOtpSecretUseCase } from "../../application/usecases/generate-otp-secret.usecase.js";
 import { GetAllCategoriesUseCase } from "../../application/usecases/get-all-categories.usecase.js";
 import { GetAllOrdersUseCase } from "../../application/usecases/get-all-orders.usecase.js";
@@ -30,6 +32,7 @@ import { ProductPrismaRepository } from "../../infrastructure/repositories/produ
 import { StorePrismaRepository } from "../../infrastructure/repositories/store-prisma.repository.js";
 import { TwoFactorPrismaRepository } from "../../infrastructure/repositories/two-factor-prisma.repository.js";
 import { UserPrismaRepository } from "../../infrastructure/repositories/user-prisma.repository.js";
+import { StripePaymentService } from "../../infrastructure/payment/stripe-payment.service.js";
 import { BcryptPasswordHasher } from "../../infrastructure/security/bcrypt-password-hasher.js";
 import { JwtTokenService } from "../../infrastructure/security/jwt-token.service.js";
 import { OtplibTotpService } from "../../infrastructure/security/otplib-totp.service.js";
@@ -41,6 +44,7 @@ import { AuthController } from "../controllers/auth.controller.js";
 import { CategoryController } from "../controllers/category.controller.js";
 import { OrderController } from "../controllers/order.controller.js";
 import { OtpController } from "../controllers/otp.controller.js";
+import { PaymentWebhookController } from "../controllers/payment-webhook.controller.js";
 import { ProductController } from "../controllers/product.controller.js";
 import { StoreController } from "../controllers/store.controller.js";
 import { UserController } from "../controllers/user.controller.js";
@@ -51,6 +55,7 @@ import { AuthRoutes } from "../routes/auth.routes.js";
 import { CategoryRoutes } from "../routes/category.routes.js";
 import { OrderRoutes } from "../routes/order.routes.js";
 import { OtpRoutes } from "../routes/otp.routes.js";
+import { PaymentRoutes } from "../routes/payment.routes.js";
 import { ProductRoutes } from "../routes/product.routes.js";
 import { StoreRoutes } from "../routes/store.routes.js";
 import { UserRoutes } from "../routes/user.routes.js";
@@ -73,6 +78,7 @@ export class Container {
   readonly authRoutes: AuthRoutes;
   readonly otpRoutes: OtpRoutes;
   readonly orderRoutes: OrderRoutes;
+  readonly paymentRoutes: PaymentRoutes;
 
   constructor() {
     const passwordHasher = new BcryptPasswordHasher(12);
@@ -87,6 +93,12 @@ export class Container {
     const sessionCookie = new SessionCookie(
       process.env.NODE_ENV === "production",
     );
+    const paymentService = new StripePaymentService(
+      process.env.STRIPE_SECRET_KEY,
+      process.env.STRIPE_WEBHOOK_SECRET,
+    );
+    const frontendBaseUrl =
+      process.env.APP_FRONTEND_URL || "http://localhost:5173";
 
     const userRepository = new UserPrismaRepository(prisma);
     const twoFactorRepository = new TwoFactorPrismaRepository(prisma);
@@ -165,6 +177,8 @@ export class Container {
     const getOrderByTrackingToken = new GetOrderByTrackingTokenUseCase(
       orderRepository,
     );
+    const confirmOrderPayment = new ConfirmOrderPaymentUseCase(orderRepository);
+    const expireOrderPayment = new ExpireOrderPaymentUseCase(orderRepository);
 
     const orderController = new OrderController({
       createOrder: new CreateOrderUseCase(
@@ -174,6 +188,8 @@ export class Container {
         userRepository,
         trackingTokenGenerator,
         clock,
+        paymentService,
+        frontendBaseUrl,
       ),
       getMyOrders: new GetMyOrdersUseCase(orderRepository),
       getAllOrders: new GetAllOrdersUseCase(orderRepository),
@@ -189,6 +205,12 @@ export class Container {
       updateOrderStatusValidator: new UpdateOrderStatusValidator(),
     });
 
+    const paymentWebhookController = new PaymentWebhookController(
+      paymentService,
+      confirmOrderPayment,
+      expireOrderPayment,
+    );
+
     this.categoryRoutes = new CategoryRoutes(categoryController);
     this.storeRoutes = new StoreRoutes(storeController);
     this.productRoutes = new ProductRoutes(productController, this.guards);
@@ -196,6 +218,7 @@ export class Container {
     this.authRoutes = new AuthRoutes(authController, this.guards);
     this.otpRoutes = new OtpRoutes(otpController, this.guards);
     this.orderRoutes = new OrderRoutes(orderController, this.guards);
+    this.paymentRoutes = new PaymentRoutes(paymentWebhookController);
   }
 }
 

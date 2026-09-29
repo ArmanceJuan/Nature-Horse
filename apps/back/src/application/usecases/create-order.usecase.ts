@@ -5,8 +5,10 @@ import type {
 } from "../../domain/entities/create-order-input.entity.js";
 import type { Order } from "../../domain/entities/order.entity.js";
 import {
+  AppError,
   ConflictError,
   NotFoundError,
+  PaymentError,
   UnauthorizedError,
   ValidationError,
 } from "../../domain/errors/http-errors.js";
@@ -15,6 +17,7 @@ import type {
   IOrderRepository,
   NewOrderItemData,
 } from "../../domain/interfaces/order-repository.interface.js";
+import type { IPaymentService } from "../../domain/interfaces/payment-service.interface.js";
 import type { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
 import type { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
 import type { ITrackingTokenGenerator } from "../../domain/interfaces/tracking-token-generator.interface.js";
@@ -25,6 +28,7 @@ import type { TrackingToken } from "../../domain/value-objects/tracking-token.js
 export interface CreatedOrder {
   order: Order;
   trackingToken: TrackingToken;
+  checkoutUrl: string;
 }
 
 interface Customer {
@@ -43,6 +47,8 @@ export class CreateOrderUseCase {
   private readonly userRepository: IUserRepository;
   private readonly trackingTokenGenerator: ITrackingTokenGenerator;
   private readonly clock: IClock;
+  private readonly paymentService: IPaymentService;
+  private readonly frontendBaseUrl: string;
 
   constructor(
     orderRepository: IOrderRepository,
@@ -51,6 +57,8 @@ export class CreateOrderUseCase {
     userRepository: IUserRepository,
     trackingTokenGenerator: ITrackingTokenGenerator,
     clock: IClock,
+    paymentService: IPaymentService,
+    frontendBaseUrl: string,
   ) {
     this.orderRepository = orderRepository;
     this.productRepository = productRepository;
@@ -58,6 +66,8 @@ export class CreateOrderUseCase {
     this.userRepository = userRepository;
     this.trackingTokenGenerator = trackingTokenGenerator;
     this.clock = clock;
+    this.paymentService = paymentService;
+    this.frontendBaseUrl = frontendBaseUrl;
   }
 
   async execute(input: CreateOrderInput): Promise<CreatedOrder> {
@@ -88,7 +98,29 @@ export class CreateOrderUseCase {
       items,
     });
 
-    return { order, trackingToken };
+    try {
+      const session = await this.paymentService.createCheckoutSession({
+        orderId: order.id,
+        customerEmail: customer.email,
+        lineItems: items.map((item) => ({
+          name: item.productName,
+          unitAmount: Math.round(item.unitPrice * 100),
+          quantity: item.quantity,
+        })),
+        successUrl: `${this.frontendBaseUrl}/order/confirmation?token=${trackingToken.value}`,
+        cancelUrl: `${this.frontendBaseUrl}/order/cancelled?token=${trackingToken.value}`,
+      });
+
+      await this.orderRepository.attachPaymentSession(order.id, session.id);
+
+      return { order, trackingToken, checkoutUrl: session.url };
+    } catch (error) {
+      await this.orderRepository.expire(order.id).catch(() => undefined);
+
+      throw error instanceof AppError
+        ? error
+        : new PaymentError("Unable to start the payment");
+    }
   }
 
   private async resolveCustomer(input: CreateOrderInput): Promise<Customer> {

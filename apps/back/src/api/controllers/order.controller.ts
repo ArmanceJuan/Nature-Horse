@@ -37,7 +37,7 @@ export class OrderController {
   create = asyncHandler(async (req: Request, res: Response) => {
     const body = this.dependencies.createOrderValidator.parse(req.body);
 
-    const { order, trackingToken } =
+    const { order, trackingToken, checkoutUrl } =
       await this.dependencies.createOrder.execute({
         userId: req.user?.userId ?? null,
         storeId: body.storeId,
@@ -46,7 +46,9 @@ export class OrderController {
       });
 
     res.set("Cache-Control", "no-store");
-    res.status(201).json({ ...order, trackingToken: trackingToken.value });
+    res
+      .status(201)
+      .json({ ...order, trackingToken: trackingToken.value, checkoutUrl });
   });
 
   getMine = asyncHandler(async (req: Request, res: Response) => {
