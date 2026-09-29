@@ -1,58 +1,190 @@
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
-import { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
-import { CreateOrderInput } from "../../domain/entities/create-order-input.entity.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import { ORDER_LIMITS } from "../../domain/entities/create-order-input.entity.js";
+import type {
+  CreateOrderInput,
+  CreateOrderItemInput,
+} from "../../domain/entities/create-order-input.entity.js";
+import type { Order } from "../../domain/entities/order.entity.js";
+import {
+  ConflictError,
+  NotFoundError,
+  UnauthorizedError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import type { IClock } from "../../domain/interfaces/clock.interface.js";
+import type {
+  IOrderRepository,
+  NewOrderItemData,
+} from "../../domain/interfaces/order-repository.interface.js";
+import type { IProductRepository } from "../../domain/interfaces/product-repository.interface.js";
+import type { IStoreRepository } from "../../domain/interfaces/store-repository.interface.js";
+import type { ITrackingTokenGenerator } from "../../domain/interfaces/tracking-token-generator.interface.js";
+import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
+import { Email } from "../../domain/value-objects/email.js";
+import type { TrackingToken } from "../../domain/value-objects/tracking-token.js";
 
-export const createOrderUsecase = (
-  orderRepository: IOrderRepository,
-  productRepository: IProductRepository,
-) => {
-  return async (input: CreateOrderInput) => {
+export interface CreatedOrder {
+  order: Order;
+  trackingToken: TrackingToken;
+}
+
+interface Customer {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+}
+
+export class CreateOrderUseCase {
+  static readonly PICKUP_DELAY_IN_MS = 60 * 60 * 1000;
+
+  private readonly orderRepository: IOrderRepository;
+  private readonly productRepository: IProductRepository;
+  private readonly storeRepository: IStoreRepository;
+  private readonly userRepository: IUserRepository;
+  private readonly trackingTokenGenerator: ITrackingTokenGenerator;
+  private readonly clock: IClock;
+
+  constructor(
+    orderRepository: IOrderRepository,
+    productRepository: IProductRepository,
+    storeRepository: IStoreRepository,
+    userRepository: IUserRepository,
+    trackingTokenGenerator: ITrackingTokenGenerator,
+    clock: IClock,
+  ) {
+    this.orderRepository = orderRepository;
+    this.productRepository = productRepository;
+    this.storeRepository = storeRepository;
+    this.userRepository = userRepository;
+    this.trackingTokenGenerator = trackingTokenGenerator;
+    this.clock = clock;
+  }
+
+  async execute(input: CreateOrderInput): Promise<CreatedOrder> {
     if (input.items.length === 0) {
-      throw new AppError("Order must contain at least one item", 400);
+      throw new ValidationError("Order must contain at least one item");
     }
 
-    const resolvedItems: {
-      productVariantId: string;
-      productName: string;
-      quantity: number;
-      unitPrice: number;
-    }[] = [];
+    const customer = await this.resolveCustomer(input);
+    await this.ensureStoreExists(input.storeId);
 
-    for (const item of input.items) {
-      if (item.quantity <= 0) {
-        throw new AppError("Item quantity must be positive", 400);
+    const lines = this.mergeLines(input.items);
+    const { items, totalPrice } = await this.priceLines(lines);
+
+    const trackingToken = this.trackingTokenGenerator.generate();
+
+    const order = await this.orderRepository.create({
+      userId: input.userId,
+      storeId: input.storeId,
+      customerEmail: customer.email,
+      customerFirstName: customer.firstName,
+      customerLastName: customer.lastName,
+      customerPhone: customer.phone,
+      trackingToken,
+      pickupReadyAt: new Date(
+        this.clock.now().getTime() + CreateOrderUseCase.PICKUP_DELAY_IN_MS,
+      ),
+      totalPrice,
+      items,
+    });
+
+    return { order, trackingToken };
+  }
+
+  private async resolveCustomer(input: CreateOrderInput): Promise<Customer> {
+    if (input.userId) {
+      const user = await this.userRepository.findById(input.userId);
+
+      if (!user) {
+        throw new UnauthorizedError();
       }
 
-      const product = await productRepository.findByVariantId(
-        item.productVariantId,
-      );
+      return {
+        email: user.email.trim().toLowerCase(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+      };
+    }
 
-      if (!product) {
-        throw new AppError(
-          `Product variant ${item.productVariantId} not found`,
-          404,
+    if (!input.guest) {
+      throw new ValidationError(
+        "Customer details are required to order without an account",
+      );
+    }
+
+    return {
+      email: Email.of(input.guest.email).value,
+      firstName: input.guest.firstName.trim(),
+      lastName: input.guest.lastName.trim(),
+      phone: input.guest.phone?.trim() || null,
+    };
+  }
+
+  private async ensureStoreExists(storeId: string): Promise<void> {
+    if (!(await this.storeRepository.findById(storeId))) {
+      throw new NotFoundError("Store not found");
+    }
+  }
+
+  private mergeLines(items: CreateOrderItemInput[]): CreateOrderItemInput[] {
+    const quantities = new Map<string, number>();
+
+    for (const item of items) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new ValidationError("Item quantity must be a positive integer");
+      }
+
+      quantities.set(
+        item.productVariantId,
+        (quantities.get(item.productVariantId) ?? 0) + item.quantity,
+      );
+    }
+
+    return [...quantities.entries()].map(([productVariantId, quantity]) => {
+      if (quantity > ORDER_LIMITS.MAX_UNITS_PER_LINE) {
+        throw new ValidationError(
+          `An order line cannot exceed ${ORDER_LIMITS.MAX_UNITS_PER_LINE} units`,
         );
       }
 
-      resolvedItems.push({
-        productVariantId: item.productVariantId,
+      return { productVariantId, quantity };
+    });
+  }
+
+  private async priceLines(
+    lines: CreateOrderItemInput[],
+  ): Promise<{ items: NewOrderItemData[]; totalPrice: number }> {
+    const items: NewOrderItemData[] = [];
+    let totalInCents = 0;
+
+    for (const line of lines) {
+      const product = await this.productRepository.findByVariantId(
+        line.productVariantId,
+      );
+
+      if (!product) {
+        throw new NotFoundError(
+          `Product variant ${line.productVariantId} not found`,
+        );
+      }
+
+      if (!product.isActive()) {
+        throw new ConflictError(
+          `Product "${product.name}" is no longer available`,
+        );
+      }
+
+      totalInCents += Math.round(product.price * 100) * line.quantity;
+
+      items.push({
+        productVariantId: line.productVariantId,
         productName: product.name,
-        quantity: item.quantity,
+        quantity: line.quantity,
         unitPrice: product.price,
       });
     }
 
-    const totalPrice = resolvedItems.reduce(
-      (sum, item) => sum + item.unitPrice * item.quantity,
-      0,
-    );
-
-    return orderRepository.create({
-      userId: input.userId,
-      storeId: input.storeId,
-      totalPrice,
-      items: resolvedItems,
-    });
-  };
-};
+    return { items, totalPrice: totalInCents / 100 };
+  }
+}

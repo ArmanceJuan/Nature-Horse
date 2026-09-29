@@ -1,20 +1,49 @@
 import { Router } from "express";
-import { container } from "../config/container.js";
-import { orderController } from "../controllers/order.controller.js";
+import rateLimit from "express-rate-limit";
+import type { OrderController } from "../controllers/order.controller.js";
+import type { RouteGuards } from "../middlewares/route-guards.js";
 
-const router = Router();
-const { requireAuth, requireRole } = container.guards;
+export class OrderRoutes {
+  readonly router: Router;
 
-router.post("/", requireAuth, orderController.create);
-router.get("/me", requireAuth, orderController.getMine);
-router.get("/", requireAuth, requireRole("ADMIN"), orderController.getAll);
-router.get("/:id", requireAuth, orderController.getById);
-router.patch(
-  "/:id/status",
-  requireAuth,
-  requireRole("ADMIN"),
-  orderController.updateStatus,
-);
-router.post("/:id/cancel", requireAuth, orderController.cancel);
+  constructor(controller: OrderController, guards: RouteGuards) {
+    this.router = Router();
 
-export default router;
+    const creationLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 10,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: {
+        message: "Too many orders from this address. Please try again later.",
+      },
+    });
+
+    this.router.post(
+      "/",
+      creationLimiter,
+      guards.optionalAuth,
+      controller.create,
+    );
+    this.router.get("/me", guards.requireAuth, controller.getMine);
+    this.router.get("/track/:trackingToken", controller.track);
+    this.router.post(
+      "/track/:trackingToken/cancel",
+      controller.cancelByTrackingToken,
+    );
+    this.router.get(
+      "/",
+      guards.requireAuth,
+      guards.requireRole("ADMIN"),
+      controller.getAll,
+    );
+    this.router.get("/:id", guards.requireAuth, controller.getById);
+    this.router.patch(
+      "/:id/status",
+      guards.requireAuth,
+      guards.requireRole("ADMIN"),
+      controller.updateStatus,
+    );
+    this.router.post("/:id/cancel", guards.requireAuth, controller.cancel);
+  }
+}

@@ -1,6 +1,6 @@
 import request from "supertest";
 import { generateSecret, generate } from "otplib";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 import { prisma } from "../config/prisma.js";
 
 describe("OTP flow", () => {

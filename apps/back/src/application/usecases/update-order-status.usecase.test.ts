@@ -1,52 +1,77 @@
-import { updateOrderStatusUsecase } from "./update-order-status.usecase.js";
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
-import { Order } from "../../domain/entities/order.entity.js";
+import { UpdateOrderStatusUseCase } from "./update-order-status.usecase.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import type { OrderStatus } from "../../domain/entities/order.entity.js";
+import { buildOrder } from "../../tests/builders/order.builder.js";
+import { InMemoryOrderRepository } from "../../tests/fakes/in-memory-order.repository.js";
 
-describe("updateOrderStatusUsecase", () => {
-  const fakeOrder: Order = {
-    id: "o1",
-    userId: "u1",
-    storeId: "s1",
-    status: "PENDING",
-    totalPrice: 100,
-    items: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+const build = (status: OrderStatus) => {
+  const repository = new InMemoryOrderRepository([
+    buildOrder({ id: "o1", status }),
+  ]);
 
-  const fakeRepository: IOrderRepository = {
-    create: async () => fakeOrder,
-    findById: async () => fakeOrder,
-    findByUserId: async () => [],
-    findAll: async () => [],
-    updateStatus: async (id, status) => ({ ...fakeOrder, status }),
-    cancel: async () => fakeOrder,
-  };
+  return { repository, useCase: new UpdateOrderStatusUseCase(repository) };
+};
 
-  it("should update to a valid status", async () => {
-    const updateOrderStatus = updateOrderStatusUsecase(fakeRepository);
-    const result = await updateOrderStatus("o1", "READY_FOR_PICKUP");
+describe("UpdateOrderStatusUseCase", () => {
+  it("moves a pending order to ready for pickup", async () => {
+    const { repository, useCase } = build("PENDING");
+
+    const result = await useCase.execute("o1", "READY_FOR_PICKUP");
 
     expect(result.status).toBe("READY_FOR_PICKUP");
+    expect((await repository.findById("o1"))?.status).toBe("READY_FOR_PICKUP");
   });
 
-  it("should reject CANCELLED (must use the cancel endpoint instead)", async () => {
-    const updateOrderStatus = updateOrderStatusUsecase(fakeRepository);
+  it("moves an order that is ready to picked up", async () => {
+    const { useCase } = build("READY_FOR_PICKUP");
 
-    await expect(updateOrderStatus("o1", "CANCELLED")).rejects.toMatchObject({
-      statusCode: 400,
-    });
+    expect((await useCase.execute("o1", "PICKED_UP")).status).toBe("PICKED_UP");
   });
 
-  it("should throw 404 when order does not exist", async () => {
-    const repoWithNoOrder: IOrderRepository = {
-      ...fakeRepository,
-      findById: async () => null,
-    };
-    const updateOrderStatus = updateOrderStatusUsecase(repoWithNoOrder);
+  it("rejects a cancellation, which has its own endpoint", async () => {
+    const { repository, useCase } = build("PENDING");
+
+    await expect(useCase.execute("o1", "CANCELLED")).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    expect((await repository.findById("o1"))?.status).toBe("PENDING");
+  });
+
+  it("rejects a transition that skips a step", async () => {
+    const { useCase } = build("PENDING");
+
+    await expect(useCase.execute("o1", "PICKED_UP")).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  it("rejects a transition that goes backwards", async () => {
+    const { useCase } = build("READY_FOR_PICKUP");
+
+    await expect(useCase.execute("o1", "PENDING")).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  it("does not change an order that is already picked up or cancelled", async () => {
+    for (const status of ["PICKED_UP", "CANCELLED"] as OrderStatus[]) {
+      const { useCase } = build(status);
+
+      await expect(
+        useCase.execute("o1", "READY_FOR_PICKUP"),
+      ).rejects.toBeInstanceOf(ConflictError);
+    }
+  });
+
+  it("throws a NotFoundError for an unknown order", async () => {
+    const { useCase } = build("PENDING");
 
     await expect(
-      updateOrderStatus("unknown", "PICKED_UP"),
-    ).rejects.toMatchObject({ statusCode: 404 });
+      useCase.execute("ghost", "READY_FOR_PICKUP"),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

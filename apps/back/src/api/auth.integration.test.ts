@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 describe("Authentication endpoints", () => {
   it("refuses a login for an unknown account", async () => {

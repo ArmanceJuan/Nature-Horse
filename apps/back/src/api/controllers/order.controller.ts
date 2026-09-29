@@ -1,84 +1,121 @@
-import { Request, Response } from "express";
-import {
-  createOrder,
-  getMyOrders,
-  getAllOrders,
-  getOrderById,
-  updateOrderStatus,
-  cancelOrder,
-} from "../config/dependency-injection.js";
-import { AppError } from "../middlewares/error-handler.middleware.js";
-import { validateCreateOrderDTO } from "../dto/order.dto.js";
+import type { Request, Response } from "express";
+import type { CancelOrderByTrackingTokenUseCase } from "../../application/usecases/cancel-order-by-tracking-token.usecase.js";
+import type { CancelOrderUseCase } from "../../application/usecases/cancel-order.usecase.js";
+import type { CreateOrderUseCase } from "../../application/usecases/create-order.usecase.js";
+import type { GetAllOrdersUseCase } from "../../application/usecases/get-all-orders.usecase.js";
+import type { GetMyOrdersUseCase } from "../../application/usecases/get-my-orders.usecase.js";
+import type { GetOrderByIdUseCase } from "../../application/usecases/get-order-by-id.usecase.js";
+import type { GetOrderByTrackingTokenUseCase } from "../../application/usecases/get-order-by-tracking-token.usecase.js";
+import type { UpdateOrderStatusUseCase } from "../../application/usecases/update-order-status.usecase.js";
+import type { Requester } from "../../domain/entities/order.entity.js";
+import { UnauthorizedError } from "../../domain/errors/http-errors.js";
 import { asyncHandler } from "../middlewares/async-handler.middleware.js";
+import type { CreateOrderBody } from "../validation/create-order.validator.js";
+import type { UpdateOrderStatusBody } from "../validation/update-order-status.validator.js";
+import type { IValidator } from "../validation/validator.js";
 
-export const orderController = {
-  create: asyncHandler(async (req: Request, res: Response) => {
-    const validation = validateCreateOrderDTO(req.body);
+export interface OrderControllerDependencies {
+  createOrder: CreateOrderUseCase;
+  getMyOrders: GetMyOrdersUseCase;
+  getAllOrders: GetAllOrdersUseCase;
+  getOrderById: GetOrderByIdUseCase;
+  getOrderByTrackingToken: GetOrderByTrackingTokenUseCase;
+  updateOrderStatus: UpdateOrderStatusUseCase;
+  cancelOrder: CancelOrderUseCase;
+  cancelOrderByTrackingToken: CancelOrderByTrackingTokenUseCase;
+  createOrderValidator: IValidator<CreateOrderBody>;
+  updateOrderStatusValidator: IValidator<UpdateOrderStatusBody>;
+}
 
-    if (!validation.isValid) {
-      throw new AppError(validation.errors.join(", "), 400);
-    }
+export class OrderController {
+  private readonly dependencies: OrderControllerDependencies;
 
-    if (!req.user) {
-      throw new AppError("Authentication required", 401);
-    }
+  constructor(dependencies: OrderControllerDependencies) {
+    this.dependencies = dependencies;
+  }
 
-    const order = await createOrder({
-      userId: req.user.userId,
-      storeId: req.body.storeId,
-      items: req.body.items,
-    });
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const body = this.dependencies.createOrderValidator.parse(req.body);
 
-    res.status(201).json(order);
-  }),
+    const { order, trackingToken } =
+      await this.dependencies.createOrder.execute({
+        userId: req.user?.userId ?? null,
+        storeId: body.storeId,
+        guest: req.user ? undefined : body.customer,
+        items: body.items,
+      });
 
-  getMine: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw new AppError("Authentication required", 401);
-    }
+    res.set("Cache-Control", "no-store");
+    res.status(201).json({ ...order, trackingToken: trackingToken.value });
+  });
 
-    const orders = await getMyOrders(req.user.userId);
+  getMine = asyncHandler(async (req: Request, res: Response) => {
+    const orders = await this.dependencies.getMyOrders.execute(
+      this.requester(req).userId,
+    );
+
+    res.set("Cache-Control", "no-store");
     res.status(200).json(orders);
-  }),
+  });
 
-  getAll: asyncHandler(async (req: Request, res: Response) => {
-    const orders = await getAllOrders();
+  getAll = asyncHandler(async (_req: Request, res: Response) => {
+    const orders = await this.dependencies.getAllOrders.execute();
+
+    res.set("Cache-Control", "no-store");
     res.status(200).json(orders);
-  }),
+  });
 
-  getById: asyncHandler(async (req: Request, res: Response) => {
+  getById = asyncHandler(async (req: Request, res: Response) => {
+    const order = await this.dependencies.getOrderById.execute(
+      req.params.id as string,
+      this.requester(req),
+    );
+
+    res.set("Cache-Control", "no-store");
+    res.status(200).json(order);
+  });
+
+  track = asyncHandler(async (req: Request, res: Response) => {
+    const order = await this.dependencies.getOrderByTrackingToken.execute(
+      req.params.trackingToken as string,
+    );
+
+    res.set("Cache-Control", "no-store");
+    res.status(200).json(order);
+  });
+
+  updateStatus = asyncHandler(async (req: Request, res: Response) => {
+    const body = this.dependencies.updateOrderStatusValidator.parse(req.body);
+    const order = await this.dependencies.updateOrderStatus.execute(
+      req.params.id as string,
+      body.status,
+    );
+
+    res.status(200).json(order);
+  });
+
+  cancel = asyncHandler(async (req: Request, res: Response) => {
+    const order = await this.dependencies.cancelOrder.execute(
+      req.params.id as string,
+      this.requester(req),
+    );
+
+    res.status(200).json(order);
+  });
+
+  cancelByTrackingToken = asyncHandler(async (req: Request, res: Response) => {
+    const order = await this.dependencies.cancelOrderByTrackingToken.execute(
+      req.params.trackingToken as string,
+    );
+
+    res.status(200).json(order);
+  });
+
+  private requester(req: Request): Requester {
     if (!req.user) {
-      throw new AppError("Authentication required", 401);
+      throw new UnauthorizedError();
     }
 
-    const { id } = req.params;
-    const isAdmin = req.user.role === "ADMIN";
-    const order = await getOrderById(id as string, req.user.userId, isAdmin);
-
-    res.status(200).json(order);
-  }),
-
-  updateStatus: asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (typeof status !== "string") {
-      throw new AppError("status is required", 400);
-    }
-
-    const order = await updateOrderStatus(id as string, status);
-    res.status(200).json(order);
-  }),
-
-  cancel: asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) {
-      throw new AppError("Authentication required", 401);
-    }
-
-    const { id } = req.params;
-    const isAdmin = req.user.role === "ADMIN";
-    const order = await cancelOrder(id as string, req.user.userId, isAdmin);
-
-    res.status(200).json(order);
-  }),
-};
+    return req.user;
+  }
+}

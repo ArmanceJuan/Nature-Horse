@@ -1,59 +1,59 @@
-import { getOrderByIdUsecase } from "./get-order-by-id.usecase.js";
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
-import { Order } from "../../domain/entities/order.entity.js";
+import { GetOrderByIdUseCase } from "./get-order-by-id.usecase.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+} from "../../domain/errors/http-errors.js";
+import { buildOrder } from "../../tests/builders/order.builder.js";
+import { InMemoryOrderRepository } from "../../tests/fakes/in-memory-order.repository.js";
 
-describe("getOrderByIdUsecase", () => {
-  const fakeOrder: Order = {
-    id: "o1",
-    userId: "owner-id",
-    storeId: "s1",
-    status: "PENDING",
-    totalPrice: 100,
-    items: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+describe("GetOrderByIdUseCase", () => {
+  const order = buildOrder({ id: "o1", userId: "owner-id" });
+  const guestOrder = buildOrder({ id: "o2", userId: null });
+  const useCase = new GetOrderByIdUseCase(
+    new InMemoryOrderRepository([order, guestOrder]),
+  );
 
-  const fakeRepository: IOrderRepository = {
-    create: async () => fakeOrder,
-    findById: async () => fakeOrder,
-    findByUserId: async () => [],
-    findAll: async () => [],
-    updateStatus: async () => fakeOrder,
-    cancel: async () => fakeOrder,
-  };
-
-  it("should return the order when requested by its owner", async () => {
-    const getOrderById = getOrderByIdUsecase(fakeRepository);
-    const result = await getOrderById("o1", "owner-id", false);
-
-    expect(result).toEqual(fakeOrder);
+  it("returns the order to its owner", async () => {
+    expect(
+      await useCase.execute("o1", { userId: "owner-id", role: "CLIENT" }),
+    ).toEqual(order);
   });
 
-  it("should return the order when requested by an admin", async () => {
-    const getOrderById = getOrderByIdUsecase(fakeRepository);
-    const result = await getOrderById("o1", "someone-else", true);
-
-    expect(result).toEqual(fakeOrder);
+  it("returns the order to an administrator", async () => {
+    expect(
+      await useCase.execute("o1", { userId: "admin-id", role: "ADMIN" }),
+    ).toEqual(order);
   });
 
-  it("should throw 403 when requested by a non-owner, non-admin user", async () => {
-    const getOrderById = getOrderByIdUsecase(fakeRepository);
-
+  it("refuses a user who is neither the owner nor an administrator", async () => {
     await expect(
-      getOrderById("o1", "someone-else", false),
-    ).rejects.toMatchObject({ statusCode: 403 });
+      useCase.execute("o1", { userId: "someone-else", role: "CLIENT" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
-  it("should throw 404 when order does not exist", async () => {
-    const repoWithNoOrder: IOrderRepository = {
-      ...fakeRepository,
-      findById: async () => null,
-    };
-    const getOrderById = getOrderByIdUsecase(repoWithNoOrder);
-
+  it("refuses a staff member as well", async () => {
     await expect(
-      getOrderById("unknown", "owner-id", false),
-    ).rejects.toMatchObject({ statusCode: 404 });
+      useCase.execute("o1", { userId: "staff-id", role: "STAFF" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("does not show a guest order to a logged-in customer", async () => {
+    await expect(
+      useCase.execute("o2", { userId: "someone", role: "CLIENT" }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+    });
+  });
+
+  it("shows a guest order to an administrator", async () => {
+    expect(
+      await useCase.execute("o2", { userId: "admin-id", role: "ADMIN" }),
+    ).toEqual(guestOrder);
+  });
+
+  it("throws a NotFoundError for an unknown order", async () => {
+    await expect(
+      useCase.execute("ghost", { userId: "owner-id", role: "CLIENT" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

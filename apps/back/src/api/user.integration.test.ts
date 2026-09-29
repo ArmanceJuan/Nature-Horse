@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 describe("GET /api/users", () => {
   it("should return 401 when not authenticated", async () => {

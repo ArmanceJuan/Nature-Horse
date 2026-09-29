@@ -1,18 +1,28 @@
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import type { Order, Requester } from "../../domain/entities/order.entity.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+} from "../../domain/errors/http-errors.js";
+import type { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
 
-export const getOrderByIdUsecase = (orderRepository: IOrderRepository) => {
-  return async (id: string, requestingUserId: string, isAdmin: boolean) => {
-    const order = await orderRepository.findById(id);
+export class GetOrderByIdUseCase {
+  private readonly orderRepository: IOrderRepository;
+
+  constructor(orderRepository: IOrderRepository) {
+    this.orderRepository = orderRepository;
+  }
+
+  async execute(id: string, requester: Requester): Promise<Order> {
+    const order = await this.orderRepository.findById(id);
 
     if (!order) {
-      throw new AppError("Order not found", 404);
+      throw new NotFoundError("Order not found");
     }
 
-    if (!isAdmin && order.userId !== requestingUserId) {
-      throw new AppError("You do not have permission to view this order", 403);
+    if (!order.isAccessibleBy(requester)) {
+      throw new ForbiddenError("You do not have permission to view this order");
     }
 
     return order;
-  };
-};
+  }
+}

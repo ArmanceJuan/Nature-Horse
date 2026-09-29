@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 describe("Application security headers", () => {
   it("serves a public route with the security headers enabled", async () => {

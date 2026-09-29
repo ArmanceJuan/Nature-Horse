@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 describe("GET /api/categories", () => {
   it("returns the categories in display order", async () => {

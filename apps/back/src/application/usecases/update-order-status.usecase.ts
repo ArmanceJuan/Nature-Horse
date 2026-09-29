@@ -1,42 +1,35 @@
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
-import { OrderStatus } from "../../domain/entities/order.entity.js";
-import { AppError } from "../../api/middlewares/error-handler.middleware.js";
+import type { Order, OrderStatus } from "../../domain/entities/order.entity.js";
+import {
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from "../../domain/errors/http-errors.js";
+import type { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
 
-const ALLOWED_STATUSES: OrderStatus[] = [
-  "PENDING",
-  "READY_FOR_PICKUP",
-  "PICKED_UP",
-];
+export class UpdateOrderStatusUseCase {
+  private readonly orderRepository: IOrderRepository;
 
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ["READY_FOR_PICKUP"],
-  READY_FOR_PICKUP: ["PICKED_UP"],
-  PICKED_UP: [],
-  CANCELLED: [],
-};
+  constructor(orderRepository: IOrderRepository) {
+    this.orderRepository = orderRepository;
+  }
 
-export const updateOrderStatusUsecase = (orderRepository: IOrderRepository) => {
-  return async (id: string, status: string) => {
-    if (!ALLOWED_STATUSES.includes(status as OrderStatus)) {
-      throw new AppError(
-        "Invalid status. Use the cancel endpoint to cancel an order.",
-        400,
+  async execute(id: string, target: OrderStatus): Promise<Order> {
+    if (target === "CANCELLED") {
+      throw new ValidationError("Use the cancel endpoint to cancel an order");
+    }
+
+    const order = await this.orderRepository.findById(id);
+
+    if (!order) {
+      throw new NotFoundError("Order not found");
+    }
+
+    if (!order.canTransitionTo(target)) {
+      throw new ConflictError(
+        `Cannot move an order from ${order.status} to ${target}`,
       );
     }
 
-    const existing = await orderRepository.findById(id);
-
-    if (!existing) {
-      throw new AppError("Order not found", 404);
-    }
-
-    if (!VALID_TRANSITIONS[existing.status].includes(status as OrderStatus)) {
-      throw new AppError(
-        `Cannot transition from ${existing.status} to ${status}`,
-        409,
-      );
-    }
-
-    return orderRepository.updateStatus(id, status as OrderStatus);
-  };
-};
+    return this.orderRepository.updateStatus(id, order.status, target);
+  }
+}

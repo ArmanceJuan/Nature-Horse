@@ -1,7 +1,14 @@
-import { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
+import type { Order } from "../../domain/entities/order.entity.js";
+import type { IOrderRepository } from "../../domain/interfaces/order-repository.interface.js";
 
-export const getAllOrdersUsecase = (orderRepository: IOrderRepository) => {
-  return async () => {
-    return orderRepository.findAll();
-  };
-};
+export class GetAllOrdersUseCase {
+  private readonly orderRepository: IOrderRepository;
+
+  constructor(orderRepository: IOrderRepository) {
+    this.orderRepository = orderRepository;
+  }
+
+  execute(): Promise<Order[]> {
+    return this.orderRepository.findAll();
+  }
+}

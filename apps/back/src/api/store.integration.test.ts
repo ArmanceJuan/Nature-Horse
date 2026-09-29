@@ -1,5 +1,5 @@
 import request from "supertest";
-import { app } from "./app.js";
+import { app } from "./server-app.js";
 
 describe("GET /api/stores", () => {
   it("should return 200 and an array of stores", async () => {
