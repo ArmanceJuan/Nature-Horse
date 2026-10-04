@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "API back-end Nature Horse (Express, Prisma, MySQL)",
-  "main": "src/server.js",
+  "main": "dist/src/server.js",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node src/server.js",
+    "start": "node dist/src/server.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules npx jest",
     "seed": "tsx prisma/seed.ts"
   },

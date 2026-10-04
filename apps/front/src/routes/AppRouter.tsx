@@ -9,9 +9,13 @@ import { HomePage } from "../features/catalog/pages/HomePage.js";
 import { CatalogPage } from "../features/catalog/pages/CatalogPage.js";
 import { ProductDetailPage } from "../features/catalog/pages/ProductDetailPage.js";
 import { CartPage } from "../features/cart/pages/CartPage.js";
+import { CheckoutPage } from "../features/orders/pages/CheckoutPage.js";
+import { OrderConfirmationPage } from "../features/orders/pages/OrderConfirmationPage.js";
+import { OrderCancelledPage } from "../features/orders/pages/OrderCancelledPage.js";
 import { StoresPage } from "../features/stores/pages/StoresPage.js";
 import { AdminPage } from "../features/admin/pages/AdminPage.js";
 import { ProductFormPage } from "../features/admin/pages/ProductFormPage.js";
+import { OrderTrackingPage } from "../features/orders/pages/OrderTrackingPage.js";
 
 export const AppRouter = () => {
   return (
@@ -26,6 +30,12 @@ export const AppRouter = () => {
             <Route path="/shop" element={<CatalogPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route
+              path="/order/confirmation"
+              element={<OrderConfirmationPage />}
+            />
+            <Route path="/order/cancelled" element={<OrderCancelledPage />} />
             <Route path="/stores" element={<StoresPage />} />
             <Route
               path="/otp-setup"
@@ -56,6 +66,7 @@ export const AppRouter = () => {
               }
             />
           </Route>
+          <Route path="/track/:token" element={<OrderTrackingPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -25,6 +25,7 @@ import { CancelOrderUseCase } from "../../application/usecases/cancel-order.usec
 import { CancelOrderByTrackingTokenUseCase } from "../../application/usecases/cancel-order-by-tracking-token.usecase.js";
 import { ConfirmOrderPaymentUseCase } from "../../application/usecases/confirm-order-payment.usecase.js";
 import { ExpireOrderPaymentUseCase } from "../../application/usecases/expire-order-payment.usecase.js";
+import { DisableOtpUseCase } from "../../application/usecases/disable-otp.usecase.js";
 import type { Category } from "../../domain/entities/category.entity.js";
 import type { Product } from "../../domain/entities/product.entity.js";
 import type { Store } from "../../domain/entities/store.entity.js";
@@ -56,6 +57,7 @@ import { LoginValidator } from "../../api/validation/login.validator.js";
 import { EnableOtpValidator } from "../../api/validation/enable-otp.validator.js";
 import { CreateOrderValidator } from "../../api/validation/create-order.validator.js";
 import { UpdateOrderStatusValidator } from "../../api/validation/update-order-status.validator.js";
+import { DisableOtpValidator } from "../../api/validation/disable-otp.validator.js";
 import { FakeGuards } from "../fakes/fake-guards.js";
 import { FakeBackupCodeGenerator } from "../fakes/fake-backup-code.generator.js";
 import { FakePasswordHasher } from "../fakes/fake-password-hasher.js";
@@ -146,6 +148,7 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
       passwordHasher,
       totpService,
       tokenService,
+      twoFactorRepository,
     ),
     getCurrentUser: new GetCurrentUserUseCase(userRepository),
     registerValidator: new RegisterValidator(),
@@ -167,6 +170,12 @@ export const buildInMemoryContainer = (seed: InMemorySeed = {}): Container => {
       passwordHasher,
     ),
     enableOtpValidator: new EnableOtpValidator(),
+    disableOtp: new DisableOtpUseCase(
+      userRepository,
+      twoFactorRepository,
+      passwordHasher,
+    ),
+    disableOtpValidator: new DisableOtpValidator(),
   });
 
   const getOrderByTrackingToken = new GetOrderByTrackingTokenUseCase(

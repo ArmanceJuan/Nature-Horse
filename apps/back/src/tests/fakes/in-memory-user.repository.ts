@@ -6,7 +6,7 @@ import type {
 import type { Email } from "../../domain/value-objects/email.js";
 
 export class InMemoryUserRepository implements IUserRepository {
-  private readonly users: User[];
+  private users: User[];
   private sequence = 0;
 
   constructor(users: User[] = []) {
@@ -40,5 +40,29 @@ export class InMemoryUserRepository implements IUserRepository {
     this.users.push(user);
 
     return user;
+  }
+
+  setOtpStatus(
+    userId: string,
+    otpEnabled: boolean,
+    otpSecret: string | null,
+  ): void {
+    this.users = this.users.map((user) =>
+      user.id === userId
+        ? new User({
+            id: user.id,
+            email: user.email,
+            password: user.password,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phone: user.phone,
+            role: user.role,
+            otpEnabled,
+            otpSecret,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          })
+        : user,
+    );
   }
 }

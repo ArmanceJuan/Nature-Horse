@@ -40,7 +40,7 @@ describe("OTP flow", () => {
     expect(response.body.qrCode).toContain("data:image/png;base64");
   });
 
-  it("should enable OTP with a valid code", async () => {
+  it("should reject enabling OTP with a wrong password", async () => {
     const secretResponse = await request(app)
       .get("/api/otp/generate-secret")
       .set("Cookie", cookie);
@@ -48,13 +48,12 @@ describe("OTP flow", () => {
     const { secret } = secretResponse.body;
     const validCode = await generate({ secret });
 
-    const enableResponse = await request(app)
+    const response = await request(app)
       .post("/api/otp/enable")
       .set("Cookie", cookie)
-      .send({ secret, code: validCode });
+      .send({ password: "WrongPassword1!", secret, code: validCode });
 
-    expect(enableResponse.status).toBe(200);
-    expect(enableResponse.body.backupCodes).toHaveLength(5);
+    expect(response.status).toBe(400);
   });
 
   it("should reject an invalid OTP code", async () => {
@@ -67,8 +66,64 @@ describe("OTP flow", () => {
     const response = await request(app)
       .post("/api/otp/enable")
       .set("Cookie", cookie)
-      .send({ secret, code: "000000" });
+      .send({ password: testUser.password, secret, code: "000000" });
 
     expect(response.status).toBe(400);
+  });
+
+  it("should enable OTP with the right password and a valid code", async () => {
+    const secretResponse = await request(app)
+      .get("/api/otp/generate-secret")
+      .set("Cookie", cookie);
+
+    const { secret } = secretResponse.body;
+    const validCode = await generate({ secret });
+
+    const enableResponse = await request(app)
+      .post("/api/otp/enable")
+      .set("Cookie", cookie)
+      .send({ password: testUser.password, secret, code: validCode });
+
+    expect(enableResponse.status).toBe(200);
+    expect(enableResponse.body.backupCodes).toHaveLength(5);
+  });
+
+  it("should reject enabling a second time", async () => {
+    const secretResponse = await request(app)
+      .get("/api/otp/generate-secret")
+      .set("Cookie", cookie);
+
+    const { secret } = secretResponse.body;
+    const validCode = await generate({ secret });
+
+    const response = await request(app)
+      .post("/api/otp/enable")
+      .set("Cookie", cookie)
+      .send({ password: testUser.password, secret, code: validCode });
+
+    expect(response.status).toBe(409);
+  });
+
+  it("should reject disabling OTP with a wrong password, then disable with the right one, then reject a second attempt", async () => {
+    const wrongPasswordResponse = await request(app)
+      .post("/api/otp/disable")
+      .set("Cookie", cookie)
+      .send({ password: "WrongPassword1!" });
+
+    expect(wrongPasswordResponse.status).toBe(400);
+
+    const disableResponse = await request(app)
+      .post("/api/otp/disable")
+      .set("Cookie", cookie)
+      .send({ password: testUser.password });
+
+    expect(disableResponse.status).toBe(200);
+
+    const secondDisableResponse = await request(app)
+      .post("/api/otp/disable")
+      .set("Cookie", cookie)
+      .send({ password: testUser.password });
+
+    expect(secondDisableResponse.status).toBe(409);
   });
 });

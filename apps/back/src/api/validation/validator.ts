@@ -117,4 +117,25 @@ export abstract class Validator<T> implements IValidator<T> {
       .map((entry: string) => entry.trim())
       .filter((entry: string) => entry !== "");
   }
+
+  protected passwordField(
+    body: Record<string, unknown>,
+    key: string,
+    message: string,
+    errors: string[],
+    maxLength: number,
+  ): string {
+    const value = body[key];
+
+    if (
+      typeof value !== "string" ||
+      value.length === 0 ||
+      value.length > maxLength
+    ) {
+      errors.push(message);
+      return "";
+    }
+
+    return value;
+  }
 }

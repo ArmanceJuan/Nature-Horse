@@ -3,6 +3,7 @@ import { Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useAuth } from "../../auth/context/AuthContext.js";
 import type { UserRole } from "../../auth/types/auth.types.js";
 import { TwoFactorSection } from "../components/TwoFactorSection.js";
+import { OrderHistorySection } from "../../orders/components/OrderHistorySection.js";
 
 const ROLE_LABELS: Record<UserRole, string | null> = {
   ADMIN: "Admin",
@@ -69,6 +70,8 @@ export const AccountPage = () => {
           <InfoRow label="Téléphone" value={user.phone ?? "Non renseigné"} />
           <InfoRow label="Membre depuis le" value={memberSince} />
         </Paper>
+
+        <OrderHistorySection />
 
         {canUseTwoFactor && <TwoFactorSection />}
 

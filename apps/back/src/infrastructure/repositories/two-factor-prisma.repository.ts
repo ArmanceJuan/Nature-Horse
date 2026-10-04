@@ -25,4 +25,41 @@ export class TwoFactorPrismaRepository implements ITwoFactorRepository {
       }),
     ]);
   }
+
+  async disable(userId: string): Promise<void> {
+    await this.database.$transaction([
+      this.database.user.update({
+        where: { id: userId },
+        data: { otpSecret: null, otpEnabled: false },
+      }),
+      this.database.a2FBackupCode.deleteMany({ where: { userId } }),
+    ]);
+  }
+
+  async getBackupCodeHashes(userId: string): Promise<string[]> {
+    const row = await this.database.a2FBackupCode.findUnique({
+      where: { userId },
+    });
+
+    return row ? (row.codesHash as string[]) : [];
+  }
+
+  async consumeBackupCode(userId: string, hashToRemove: string): Promise<void> {
+    const row = await this.database.a2FBackupCode.findUnique({
+      where: { userId },
+    });
+
+    if (!row) {
+      return;
+    }
+
+    const remaining = (row.codesHash as string[]).filter(
+      (hash) => hash !== hashToRemove,
+    );
+
+    await this.database.a2FBackupCode.update({
+      where: { userId },
+      data: { codesHash: remaining },
+    });
+  }
 }

@@ -1,4 +1,5 @@
 import {
+  ConflictError,
   UnauthorizedError,
   ValidationError,
 } from "../../domain/errors/http-errors.js";
@@ -10,6 +11,7 @@ import type { IUserRepository } from "../../domain/interfaces/user-repository.in
 
 export interface EnableOtpInput {
   userId: string;
+  password: string;
   secret: string;
   code: string;
 }
@@ -49,6 +51,14 @@ export class EnableOtpUseCase {
       throw new UnauthorizedError();
     }
 
+    if (user.otpEnabled) {
+      throw new ConflictError("Two-factor authentication is already enabled");
+    }
+
+    if (!(await this.passwordHasher.verify(input.password, user.password))) {
+      throw new ValidationError("Invalid password");
+    }
+
     if (!(await this.totpService.verify(input.secret, input.code))) {
       throw new ValidationError("Invalid OTP code");
     }
@@ -57,7 +67,7 @@ export class EnableOtpUseCase {
       EnableOtpUseCase.BACKUP_CODE_COUNT,
     );
     const hashes = await Promise.all(
-      backupCodes.map((backupCode) => this.passwordHasher.hash(backupCode)),
+      backupCodes.map((code) => this.passwordHasher.hash(code)),
     );
 
     await this.twoFactorRepository.enable(user.id, input.secret, hashes);

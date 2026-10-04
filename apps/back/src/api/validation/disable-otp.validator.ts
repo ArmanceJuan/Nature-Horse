@@ -1,16 +1,14 @@
 import { Validator } from "./validator.js";
 
-export interface EnableOtpBody {
+export interface DisableOtpBody {
   password: string;
-  secret: string;
-  code: string;
 }
 
-export class EnableOtpValidator extends Validator<EnableOtpBody> {
+export class DisableOtpValidator extends Validator<DisableOtpBody> {
   protected build(
     body: Record<string, unknown>,
     errors: string[],
-  ): EnableOtpBody {
+  ): DisableOtpBody {
     return {
       password: this.passwordField(
         body,
@@ -19,8 +17,6 @@ export class EnableOtpValidator extends Validator<EnableOtpBody> {
         errors,
         128,
       ),
-      secret: this.text(body, "secret", "secret is required", errors, 100),
-      code: this.text(body, "code", "code is required", errors, 20),
     };
   }
 }

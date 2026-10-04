@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -8,7 +7,6 @@ import {
   Button,
   Divider,
   Paper,
-  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
@@ -16,41 +14,12 @@ import CloseIcon from "@mui/icons-material/Close";
 import { useCart } from "../context/CartContext.js";
 import { useStore } from "../../stores/context/StoreContext.js";
 import { useIsDesktop } from "../../../shared/hooks/useIsDesktop.js";
-import { ordersApi } from "../api/ordersApi.js";
 
 export const CartPage = () => {
-  const { items, removeItem, updateQuantity, totalPrice, clearCart } =
-    useCart();
+  const { items, removeItem, updateQuantity, totalPrice } = useCart();
   const { selectedStore } = useStore();
   const isDesktop = useIsDesktop();
   const navigate = useNavigate();
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleCheckout = async () => {
-    if (!selectedStore) return;
-
-    setError(null);
-    setIsSubmitting(true);
-
-    try {
-      await ordersApi.create({
-        storeId: selectedStore.id,
-        items: items.map((item) => ({
-          productVariantId: item.productVariantId,
-          quantity: item.quantity,
-        })),
-      });
-
-      clearCart();
-      navigate("/");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to place order");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (items.length === 0) {
     return (
@@ -68,12 +37,6 @@ export const CartPage = () => {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {items.length} article{items.length > 1 ? "s" : ""} dans votre panier
       </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
 
       <Box
         sx={{
@@ -267,10 +230,10 @@ export const CartPage = () => {
             variant="contained"
             fullWidth
             size="large"
-            disabled={isSubmitting || !selectedStore}
-            onClick={handleCheckout}
+            disabled={!selectedStore}
+            onClick={() => navigate("/checkout")}
           >
-            {isSubmitting ? "Validation en cours..." : "Valider mon panier"}
+            Passer commande
           </Button>
 
           <Typography

@@ -3,6 +3,7 @@ import { UnauthorizedError } from "../../domain/errors/http-errors.js";
 import type { IPasswordHasher } from "../../domain/interfaces/password-hasher.interface.js";
 import type { ITokenService } from "../../domain/interfaces/token-service.interface.js";
 import type { ITotpService } from "../../domain/interfaces/totp-service.interface.js";
+import type { ITwoFactorRepository } from "../../domain/interfaces/two-factor-repository.interface.js";
 import type { IUserRepository } from "../../domain/interfaces/user-repository.interface.js";
 import { Email } from "../../domain/value-objects/email.js";
 
@@ -21,17 +22,20 @@ export class LoginUserUseCase {
   private readonly passwordHasher: IPasswordHasher;
   private readonly totpService: ITotpService;
   private readonly tokenService: ITokenService;
+  private readonly twoFactorRepository: ITwoFactorRepository;
 
   constructor(
     userRepository: IUserRepository,
     passwordHasher: IPasswordHasher,
     totpService: ITotpService,
     tokenService: ITokenService,
+    twoFactorRepository: ITwoFactorRepository,
   ) {
     this.userRepository = userRepository;
     this.passwordHasher = passwordHasher;
     this.totpService = totpService;
     this.tokenService = tokenService;
+    this.twoFactorRepository = twoFactorRepository;
   }
 
   async execute(input: LoginInput): Promise<LoginResult> {
@@ -66,12 +70,33 @@ export class LoginUserUseCase {
   }
 
   private async ensureOtpIsValid(user: User, code: string): Promise<void> {
-    const isValid =
-      user.otpSecret !== null &&
-      (await this.totpService.verify(user.otpSecret, code));
-
-    if (!isValid) {
-      throw new UnauthorizedError("Invalid OTP code");
+    if (
+      user.otpSecret &&
+      (await this.totpService.verify(user.otpSecret, code))
+    ) {
+      return;
     }
+
+    if (await this.tryConsumeBackupCode(user.id, code)) {
+      return;
+    }
+
+    throw new UnauthorizedError("Invalid OTP code");
+  }
+
+  private async tryConsumeBackupCode(
+    userId: string,
+    code: string,
+  ): Promise<boolean> {
+    const hashes = await this.twoFactorRepository.getBackupCodeHashes(userId);
+
+    for (const hash of hashes) {
+      if (await this.passwordHasher.verify(code, hash)) {
+        await this.twoFactorRepository.consumeBackupCode(userId, hash);
+        return true;
+      }
+    }
+
+    return false;
   }
 }

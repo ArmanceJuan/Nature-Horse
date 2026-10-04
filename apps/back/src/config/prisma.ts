@@ -3,14 +3,14 @@ import { PrismaClient } from "../../generated/prisma/client.js";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 export const dbConfig = {
-  host: "127.0.0.1",
-  port: 3306,
-  user: "root",
+  host: process.env.DB_HOST || "127.0.0.1",
+  port: Number(process.env.DB_PORT) || 3306,
+  user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD as string,
-  database: "nature_horse",
+  database: process.env.DB_NAME || "nature_horse",
   connectionLimit: 5,
   connectTimeout: 10000,
-  allowPublicKeyRetrieval: true, // A retirer en rpod
+  allowPublicKeyRetrieval: true,
 };
 
 const adapter = new PrismaMariaDb(dbConfig);

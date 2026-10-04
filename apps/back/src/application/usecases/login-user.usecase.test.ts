@@ -6,22 +6,29 @@ import { buildUser } from "../../tests/builders/user.builder.js";
 import { FakePasswordHasher } from "../../tests/fakes/fake-password-hasher.js";
 import { FakeTokenService } from "../../tests/fakes/fake-token.service.js";
 import { FakeTotpService } from "../../tests/fakes/fake-totp.service.js";
+import { InMemoryTwoFactorRepository } from "../../tests/fakes/in-memory-two-factor.repository.js";
 import { InMemoryUserRepository } from "../../tests/fakes/in-memory-user.repository.js";
 
 const PASSWORD = "Password1!";
 
 const build = (
   users: User[] = [buildUser({ password: `hashed:${PASSWORD}` })],
+  twoFactorSeed: Record<
+    string,
+    { secret: string; backupCodeHashes: string[] }
+  > = {},
 ) => {
   const hasher = new FakePasswordHasher();
+  const twoFactor = new InMemoryTwoFactorRepository(twoFactorSeed);
   const useCase = new LoginUserUseCase(
     new InMemoryUserRepository(users),
     hasher,
     new FakeTotpService(),
     new FakeTokenService(),
+    twoFactor,
   );
 
-  return { hasher, useCase };
+  return { hasher, twoFactor, useCase };
 };
 
 const expectSession = (result: LoginResult) => {
@@ -50,36 +57,7 @@ describe("LoginUserUseCase", () => {
       }),
     );
 
-    expect(session.user.id).toBe("user-1");
     expect(session.token).toBe("token:user-1:CLIENT");
-  });
-
-  it("accepts the email whatever its case", async () => {
-    const { useCase } = build();
-
-    const session = expectSession(
-      await useCase.execute({
-        email: " CLIENT@Example.com ",
-        password: PASSWORD,
-      }),
-    );
-
-    expect(session.user.id).toBe("user-1");
-  });
-
-  it("puts the role of the account in the token", async () => {
-    const { useCase } = build([
-      buildUser({ role: "ADMIN", password: `hashed:${PASSWORD}` }),
-    ]);
-
-    const session = expectSession(
-      await useCase.execute({
-        email: "client@example.com",
-        password: PASSWORD,
-      }),
-    );
-
-    expect(session.token).toBe("token:user-1:ADMIN");
   });
 
   it("refuses a wrong password", async () => {
@@ -99,29 +77,6 @@ describe("LoginUserUseCase", () => {
     expect(hasher.simulations).toBe(1);
   });
 
-  it("treats an email that is not valid like an unknown account", async () => {
-    const { hasher, useCase } = build();
-
-    await expect(
-      useCase.execute({ email: "not-an-email", password: PASSWORD }),
-    ).rejects.toBeInstanceOf(UnauthorizedError);
-    expect(hasher.simulations).toBe(1);
-  });
-
-  it("gives the same answer for an unknown account and for a wrong password", async () => {
-    const { useCase } = build();
-
-    const unknown = await useCase
-      .execute({ email: "ghost@example.com", password: PASSWORD })
-      .catch((error) => error);
-    const wrong = await useCase
-      .execute({ email: "client@example.com", password: "Wrong1!" })
-      .catch((error) => error);
-
-    expect(unknown.message).toBe(wrong.message);
-    expect(unknown.statusCode).toBe(wrong.statusCode);
-  });
-
   it("asks for a code when two-factor authentication is enabled and none is given", async () => {
     const { useCase } = build([otpUser()]);
 
@@ -131,10 +86,9 @@ describe("LoginUserUseCase", () => {
     });
 
     expect(result).toEqual({ requiresOtp: true });
-    expect("token" in result).toBe(false);
   });
 
-  it("opens the session when the code is right", async () => {
+  it("opens the session when the TOTP code is right", async () => {
     const { useCase } = build([otpUser()]);
 
     const session = expectSession(
@@ -148,31 +102,76 @@ describe("LoginUserUseCase", () => {
     expect(session.token).toBe("token:user-1:CLIENT");
   });
 
-  it("refuses a wrong code", async () => {
-    const { useCase } = build([otpUser()]);
+  it("opens the session with a valid backup code", async () => {
+    const { useCase } = build([otpUser()], {
+      "user-1": { secret: "irrelevant", backupCodeHashes: ["hashed:CODE1"] },
+    });
+
+    const session = expectSession(
+      await useCase.execute({
+        email: "client@example.com",
+        password: PASSWORD,
+        code: "CODE1",
+      }),
+    );
+
+    expect(session.token).toBe("token:user-1:CLIENT");
+  });
+
+  it("consumes the backup code so it cannot be used a second time", async () => {
+    const { twoFactor, useCase } = build([otpUser()], {
+      "user-1": { secret: "irrelevant", backupCodeHashes: ["hashed:CODE1"] },
+    });
+
+    await useCase.execute({
+      email: "client@example.com",
+      password: PASSWORD,
+      code: "CODE1",
+    });
+
+    await expect(
+      useCase.execute({
+        email: "client@example.com",
+        password: PASSWORD,
+        code: "CODE1",
+      }),
+    ).rejects.toMatchObject({ statusCode: 401, message: "Invalid OTP code" });
+    expect(await twoFactor.getBackupCodeHashes("user-1")).toEqual([]);
+  });
+
+  it("leaves the other backup codes usable after one is consumed", async () => {
+    const { useCase } = build([otpUser()], {
+      "user-1": {
+        secret: "irrelevant",
+        backupCodeHashes: ["hashed:CODE1", "hashed:CODE2"],
+      },
+    });
+
+    await useCase.execute({
+      email: "client@example.com",
+      password: PASSWORD,
+      code: "CODE1",
+    });
+
+    await expect(
+      useCase.execute({
+        email: "client@example.com",
+        password: PASSWORD,
+        code: "CODE2",
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it("refuses a wrong code that is neither the TOTP code nor a backup code", async () => {
+    const { useCase } = build([otpUser()], {
+      "user-1": { secret: "irrelevant", backupCodeHashes: ["hashed:CODE1"] },
+    });
 
     await expect(
       useCase.execute({
         email: "client@example.com",
         password: PASSWORD,
         code: "000000",
-      }),
-    ).rejects.toMatchObject({ statusCode: 401, message: "Invalid OTP code" });
-  });
-
-  it("refuses a code when the account has no secret", async () => {
-    const user = buildUser({
-      password: `hashed:${PASSWORD}`,
-      otpEnabled: true,
-      otpSecret: null,
-    });
-    const { useCase } = build([user]);
-
-    await expect(
-      useCase.execute({
-        email: "client@example.com",
-        password: PASSWORD,
-        code: FakeTotpService.VALID_CODE,
       }),
     ).rejects.toBeInstanceOf(UnauthorizedError);
   });

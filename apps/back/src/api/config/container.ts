@@ -26,6 +26,7 @@ import { ReactivateProductUseCase } from "../../application/usecases/reactivate-
 import { RegisterUserUseCase } from "../../application/usecases/register-user.usecase.js";
 import { UpdateOrderStatusUseCase } from "../../application/usecases/update-order-status.usecase.js";
 import { UpdateProductUseCase } from "../../application/usecases/update-product.usecase.js";
+import { DisableOtpUseCase } from "../../application/usecases/disable-otp.usecase.js";
 import { CategoryPrismaRepository } from "../../infrastructure/repositories/category-prisma.repository.js";
 import { OrderPrismaRepository } from "../../infrastructure/repositories/order-prisma.repository.js";
 import { ProductPrismaRepository } from "../../infrastructure/repositories/product-prisma.repository.js";
@@ -68,6 +69,7 @@ import { LoginValidator } from "../validation/login.validator.js";
 import { RegisterValidator } from "../validation/register.validator.js";
 import { UpdateOrderStatusValidator } from "../validation/update-order-status.validator.js";
 import { UpdateProductValidator } from "../validation/update-product.validator.js";
+import { DisableOtpValidator } from "../validation/disable-otp.validator.js";
 
 export class Container {
   readonly guards: RouteGuards;
@@ -151,6 +153,7 @@ export class Container {
         passwordHasher,
         totpService,
         tokenService,
+        twoFactorRepository,
       ),
       getCurrentUser: new GetCurrentUserUseCase(userRepository),
       registerValidator: new RegisterValidator(),
@@ -171,7 +174,13 @@ export class Container {
         backupCodeGenerator,
         passwordHasher,
       ),
+      disableOtp: new DisableOtpUseCase(
+        userRepository,
+        twoFactorRepository,
+        passwordHasher,
+      ),
       enableOtpValidator: new EnableOtpValidator(),
+      disableOtpValidator: new DisableOtpValidator(),
     });
 
     const getOrderByTrackingToken = new GetOrderByTrackingTokenUseCase(
