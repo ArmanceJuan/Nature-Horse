@@ -26,6 +26,8 @@ jobs:
         working-directory: apps/back
         env:
           JWT_SECRET: ci-test-secret-at-least-32-characters-long
+          STRIPE_SECRET_KEY: sk_test_ci_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
         run: npm test
 
   deploy:
