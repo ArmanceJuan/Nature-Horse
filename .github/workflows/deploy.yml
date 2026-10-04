@@ -7,6 +7,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: nature_horse
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -19,12 +34,19 @@ jobs:
       - name: Generate Prisma client
         working-directory: apps/back
         env:
-          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
+          DATABASE_URL: "mysql://root:ci-root-password@127.0.0.1:3306/nature_horse"
         run: npx prisma generate
+
+      - name: Apply migrations to the CI database
+        working-directory: apps/back
+        env:
+          DATABASE_URL: "mysql://root:ci-root-password@127.0.0.1:3306/nature_horse"
+        run: npx prisma migrate deploy
 
       - name: Run back-end tests
         working-directory: apps/back
         env:
+          DB_PASSWORD: ci-root-password
           JWT_SECRET: ci-test-secret-at-least-32-characters-long
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
@@ -35,12 +57,3 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/Nature-Horse
-            git pull origin main
-            docker compose -f docker-compose.prod.yml --env-file .env up -d --build
