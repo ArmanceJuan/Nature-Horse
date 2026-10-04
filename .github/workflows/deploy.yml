@@ -16,6 +16,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Generate Prisma client
+        working-directory: apps/back
+        env:
+          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
+        run: npx prisma generate
+
       - name: Run back-end tests
         working-directory: apps/back
         env:
