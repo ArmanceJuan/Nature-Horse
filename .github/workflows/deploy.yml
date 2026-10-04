@@ -2,7 +2,7 @@ name: Test and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev, preprod]
 
 jobs:
   test:
@@ -47,6 +47,7 @@ jobs:
         working-directory: apps/back
         env:
           DATABASE_URL: "mysql://root:ci-root-password@127.0.0.1:3306/nature_horse"
+          DB_PASSWORD: ci-root-password
         run: npx tsx prisma/seed.ts
 
       - name: Run back-end tests
@@ -60,6 +61,7 @@ jobs:
 
   deploy:
     needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
