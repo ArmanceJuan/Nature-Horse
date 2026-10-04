@@ -43,6 +43,12 @@ jobs:
           DATABASE_URL: "mysql://root:ci-root-password@127.0.0.1:3306/nature_horse"
         run: npx prisma migrate deploy
 
+      - name: Seed the CI database
+        working-directory: apps/back
+        env:
+          DATABASE_URL: "mysql://root:ci-root-password@127.0.0.1:3306/nature_horse"
+        run: npx tsx prisma/seed.ts
+
       - name: Run back-end tests
         working-directory: apps/back
         env:
