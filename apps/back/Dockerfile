@@ -18,6 +18,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/back/dist ./apps/back/dist
 COPY --from=builder /app/apps/back/generated ./apps/back/generated
 COPY --from=builder /app/apps/back/prisma ./apps/back/prisma
+COPY --from=builder /app/apps/back/prisma.config.ts ./apps/back/prisma.config.ts
 COPY --from=builder /app/apps/back/package.json ./apps/back/package.json
 
 WORKDIR /app/apps/back
