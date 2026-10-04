@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY apps/back ./apps/back
 WORKDIR /app/apps/back
+ENV DATABASE_URL="mysql://placeholder:placeholder@localhost:3306/placeholder"
 RUN npx prisma generate
 RUN npm run build
 

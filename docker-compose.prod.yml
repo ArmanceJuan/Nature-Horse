@@ -26,7 +26,7 @@ services:
       timeout: 5s
       retries: 10
 
-  back:
+    back:
     build:
       context: .
       dockerfile: apps/back/Dockerfile
@@ -41,6 +41,7 @@ services:
       DB_USER: root
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       DB_NAME: ${DB_NAME}
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
